@@ -9,6 +9,11 @@ export interface Dataset {
   file_url: string | null
   visibility: string
   license: string
+  created_by: string
+  author?: {
+    username: string | null
+    wallet_address: string
+  }
 }
 
 export interface CreateDatasetParams {
@@ -17,4 +22,5 @@ export interface CreateDatasetParams {
   visibility: string
   category_tags: string[]
   license: string
+  wallet_address: string
 } 

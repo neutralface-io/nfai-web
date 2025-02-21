@@ -4,20 +4,28 @@ import { Dataset } from '@/types/dataset'
 import { Button } from './ui/button'
 import { Heart, ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
-import { likeDataset, uploadDatasetFile } from '@/lib/supabase'
+import { likeDataset, uploadDatasetFile, deleteDataset } from '@/lib/supabase'
 import { Input } from './ui/input'
 import { useRouter } from 'next/navigation'
+import { useWallet } from '@solana/wallet-adapter-react'
+import { getDisplayName } from '@/lib/utils'
+import { EditDatasetModal } from './EditDatasetModal'
 
 interface DatasetDetailsProps {
   dataset: Dataset
 }
 
 export function DatasetDetails({ dataset }: DatasetDetailsProps) {
+  const { publicKey } = useWallet()
   const router = useRouter()
   const [likes, setLikes] = useState(dataset.likes)
   const [isLiking, setIsLiking] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  
+  const isOwner = publicKey?.toBase58() === dataset.created_by
 
   async function handleLike() {
     try {
@@ -49,6 +57,30 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
     }
   }
 
+  const handleDelete = async () => {
+    if (!publicKey) {
+      alert('Please connect your wallet first')
+      return
+    }
+
+    if (!confirm('Are you sure you want to delete this dataset?')) return
+    
+    try {
+      setIsDeleting(true)
+      await deleteDataset(dataset.id, publicKey.toBase58())
+      router.push('/')
+    } catch (error) {
+      console.error('Error deleting dataset:', error)
+      alert(error instanceof Error ? error.message : 'Failed to delete dataset')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleUpdate = () => {
+    window.location.reload() // Refresh to show updated data
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -65,15 +97,37 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
           <div>
             <h1 className="text-4xl font-bold mb-2">{dataset.name}</h1>
             <p className="text-gray-600 mb-4">{dataset.description}</p>
+            <p className="text-muted-foreground">
+              By {getDisplayName(dataset.author)}
+            </p>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={handleLike}
-            disabled={isLiking}
-          >
-            <Heart className="w-4 h-4 mr-2" />
-            {likes}
-          </Button>
+          <div className="flex items-center gap-2">
+            {isOwner && (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditModalOpen(true)}
+                >
+                  Edit
+                </Button>
+                <Button 
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </Button>
+              </>
+            )}
+            <Button 
+              variant="outline" 
+              onClick={handleLike}
+              disabled={isLiking}
+            >
+              <Heart className="w-4 h-4 mr-2" />
+              {likes}
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -106,7 +160,7 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
           </div>
         </div>
 
-        {!dataset.file_url && (
+        {isOwner && !dataset.file_url && (
           <div className="mt-8 p-6 border rounded-lg">
             <h2 className="text-xl font-semibold mb-4">Upload Dataset File</h2>
             {uploadError && (
@@ -151,6 +205,13 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
           </div>
         )}
       </div>
+
+      <EditDatasetModal
+        dataset={dataset}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onUpdate={handleUpdate}
+      />
     </div>
   )
 } 

@@ -1,3 +1,7 @@
+/* Import Solana Wallet Adapter styles first */
+@import '@solana/wallet-adapter-react-ui/styles.css';
+
+/* Then Tailwind imports */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

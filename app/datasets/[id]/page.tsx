@@ -2,13 +2,17 @@ import { getDatasetById } from '@/lib/supabase'
 import { DatasetDetails } from '@/components/DatasetDetails'
 import { notFound } from 'next/navigation'
 
+interface PageProps {
+  params: Promise<{ id: string }>
+}
+
 export default async function DatasetPage({
   params,
-}: {
-  params: { id: string }
-}) {
+}: PageProps) {
   try {
-    const dataset = await getDatasetById(params.id)
+    // Await the params
+    const { id } = await params
+    const dataset = await getDatasetById(id)
     
     if (!dataset) {
       notFound()

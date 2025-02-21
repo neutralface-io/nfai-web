@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
@@ -13,19 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
-import { createDataset } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
-import { Plus } from 'lucide-react'
+import { updateDataset } from '@/lib/supabase'
+import { Dataset } from '@/types/dataset'
 import { useWallet } from '@solana/wallet-adapter-react'
-
-const LICENSE_TYPES = [
-  'MIT',
-  'Apache-2.0',
-  'GPL-3.0',
-  'BSD-3-Clause',
-  'CC BY 4.0',
-  'Public Domain'
-]
 
 const CATEGORIES = [
   'Text',
@@ -38,18 +28,21 @@ const CATEGORIES = [
   'Other'
 ]
 
-export function CreateDatasetModal() {
-  const router = useRouter()
+interface EditDatasetModalProps {
+  dataset: Dataset
+  isOpen: boolean
+  onClose: () => void
+  onUpdate: () => void
+}
+
+export function EditDatasetModal({ dataset, isOpen, onClose, onUpdate }: EditDatasetModalProps) {
   const { publicKey } = useWallet()
-  const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    visibility: 'public',
-    category_tags: [] as string[],
-    license: LICENSE_TYPES[0],
+    name: dataset.name,
+    description: dataset.description,
+    category_tags: dataset.category_tags,
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,27 +61,16 @@ export function CreateDatasetModal() {
       setIsLoading(true)
       setError(null)
 
-      const params = {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        visibility: formData.visibility,
-        category_tags: formData.category_tags,
-        license: formData.license,
-        wallet_address: publicKey.toBase58(),
-      }
+      await updateDataset(dataset.id, {
+        ...formData,
+        created_by: publicKey.toBase58(), // For authorization check
+      })
 
-      console.log('Submitting dataset with params:', params)
-
-      await createDataset(params)
-      setIsOpen(false)
-      window.location.reload()
+      onUpdate()
+      onClose()
     } catch (error) {
-      console.error('Error creating dataset:', error)
-      if (error instanceof Error) {
-        setError(`Failed to create dataset: ${error.message}`)
-      } else {
-        setError('Failed to create dataset. Please check the console for details.')
-      }
+      console.error('Error updating dataset:', error)
+      setError(error instanceof Error ? error.message : 'Failed to update dataset')
     } finally {
       setIsLoading(false)
     }
@@ -98,28 +80,12 @@ export function CreateDatasetModal() {
     <Dialog 
       open={isOpen} 
       onOpenChange={(open) => {
-        setIsOpen(open)
-        if (!open) {
-          setError(null)
-          setFormData({
-            name: '',
-            description: '',
-            visibility: 'public',
-            category_tags: [],
-            license: LICENSE_TYPES[0],
-          })
-        }
+        if (!open) onClose()
       }}
     >
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Dataset
-        </Button>
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Create New Dataset</DialogTitle>
+          <DialogTitle>Edit Dataset</DialogTitle>
         </DialogHeader>
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-md mb-4">
@@ -148,22 +114,6 @@ export function CreateDatasetModal() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="visibility">Visibility</Label>
-            <Select
-              value={formData.visibility}
-              onValueChange={value => setFormData(prev => ({ ...prev, visibility: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select visibility" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">Public</SelectItem>
-                <SelectItem value="private">Private</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="categories">Categories</Label>
             <Select
               value={formData.category_tags[0]}
@@ -185,36 +135,17 @@ export function CreateDatasetModal() {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="license">License</Label>
-            <Select
-              value={formData.license}
-              onValueChange={value => setFormData(prev => ({ ...prev, license: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select license" />
-              </SelectTrigger>
-              <SelectContent>
-                {LICENSE_TYPES.map(license => (
-                  <SelectItem key={license} value={license}>
-                    {license}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           <div className="flex justify-end gap-4">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setIsOpen(false)}
+              onClick={onClose}
               disabled={isLoading}
             >
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Creating...' : 'Create Dataset'}
+              {isLoading ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </form>

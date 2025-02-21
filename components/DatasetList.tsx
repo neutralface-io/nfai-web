@@ -18,29 +18,27 @@ type SortOption = 'popular' | 'recent' | 'size' | 'category'
 export function DatasetList() {
   const [sortBy, setSortBy] = useState<SortOption>('recent')
   const [datasets, setDatasets] = useState<Dataset[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadDatasets() {
       try {
-        setIsLoading(true)
+        console.log('Loading datasets...')
+        setLoading(true)
         const data = await getDatasets()
-        
-        // Sort the datasets based on selected option
-        const sortedData = sortDatasets(data, sortBy)
-        setDatasets(sortedData)
-        setError(null)
+        console.log('Loaded datasets:', data)
+        setDatasets(data)
       } catch (err) {
+        console.error('Error loading datasets:', err)
         setError('Failed to load datasets')
-        console.error(err)
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
     loadDatasets()
-  }, [sortBy])
+  }, [])
 
   function sortDatasets(data: Dataset[], sort: SortOption): Dataset[] {
     switch (sort) {
@@ -61,14 +59,18 @@ export function DatasetList() {
     }
   }
 
-  if (isLoading) {
-    return <div className="text-center py-8">Loading datasets...</div>
+  if (loading) {
+    return <div>Loading datasets...</div>
   }
 
   if (error) {
+    return <div className="text-red-600">{error}</div>
+  }
+
+  if (datasets.length === 0) {
     return (
-      <div className="text-center py-8 text-red-600">
-        {error}
+      <div className="text-center py-8 text-gray-500">
+        No datasets available. Create one to get started!
       </div>
     )
   }
@@ -102,13 +104,7 @@ export function DatasetList() {
           {datasets.map((dataset) => (
             <DatasetCard
               key={dataset.id}
-              id={dataset.id}
-              name={dataset.name}
-              description={dataset.description}
-              uploadDate={dataset.upload_date}
-              size={dataset.size}
-              categoryTags={dataset.category_tags}
-              likes={dataset.likes}
+              dataset={dataset}
             />
           ))}
         </div>
