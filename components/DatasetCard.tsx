@@ -1,20 +1,26 @@
-import { Calendar, Heart, HardDrive, Tag } from 'lucide-react'
+import { Calendar, Heart, HardDrive, Tag, Crown } from 'lucide-react'
 import { Button } from './ui/button'
 import Link from 'next/link'
 import { Dataset } from '../types/dataset'
 import { getDisplayName } from '@/lib/utils'
+import { useWallet } from '@solana/wallet-adapter-react'
 
 interface DatasetCardProps {
   dataset: Dataset
 }
 
 export function DatasetCard({ dataset }: DatasetCardProps) {
+  const { publicKey } = useWallet()
+  const isOwner = publicKey?.toBase58() === dataset.created_by
+
   if (!dataset) {
     return null // Or return a placeholder/skeleton
   }
 
   return (
-    <div className="border rounded-lg p-4 space-y-4">
+    <div className={`border rounded-lg p-4 space-y-4 ${
+      isOwner ? 'bg-gray-50 border-gray-300' : ''
+    }`}>
       <div className="flex justify-between items-start">
         <div>
           <h3 className="font-medium">{dataset.name || 'Untitled Dataset'}</h3>
@@ -22,7 +28,10 @@ export function DatasetCard({ dataset }: DatasetCardProps) {
             {dataset.description || 'No description available'}
           </p>
         </div>
-        <div className="text-sm text-muted-foreground">
+        <div className="text-sm text-muted-foreground flex items-center gap-1">
+          {isOwner && (
+            <Crown className="w-4 h-4 text-yellow-500" />
+          )}
           {getDisplayName(dataset.author)}
         </div>
       </div>
