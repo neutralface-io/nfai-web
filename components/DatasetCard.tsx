@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { Dataset } from '../types/dataset'
 import { getDisplayName } from '@/lib/utils'
 import { useWallet } from '@solana/wallet-adapter-react'
+import { useState, useEffect } from 'react'
+import { getLikedDatasets, toggleLike } from '@/lib/supabase'
 
 interface DatasetCardProps {
   dataset: Dataset
@@ -12,6 +14,44 @@ interface DatasetCardProps {
 export function DatasetCard({ dataset }: DatasetCardProps) {
   const { publicKey } = useWallet()
   const isOwner = publicKey?.toBase58() === dataset.created_by
+  const [likes, setLikes] = useState(dataset.likes)
+  const [isLiked, setIsLiked] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    async function checkIfLiked() {
+      if (!publicKey) return
+      try {
+        const likedDatasets = await getLikedDatasets(publicKey.toBase58())
+        setIsLiked(likedDatasets.has(dataset.id))
+      } catch (error) {
+        console.error('Error checking liked status:', error)
+      }
+    }
+
+    checkIfLiked()
+  }, [publicKey, dataset.id])
+
+  async function handleLikeClick() {
+    if (!publicKey) {
+      alert('Please connect your wallet to like datasets')
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      console.log('Attempting to toggle like...')
+      const newLikeCount = await toggleLike(dataset.id, publicKey.toBase58())
+      console.log('Like toggled successfully, new count:', newLikeCount)
+      setLikes(newLikeCount)
+      setIsLiked(!isLiked)
+    } catch (error) {
+      console.error('Error toggling like:', error)
+      alert('Failed to toggle like. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   if (!dataset) {
     return null // Or return a placeholder/skeleton
@@ -63,9 +103,17 @@ export function DatasetCard({ dataset }: DatasetCardProps) {
       </div>
 
       <div className="flex justify-between items-center">
-        <Button variant="outline" size="sm">
-          <Heart className="w-4 h-4 mr-2" />
-          {dataset.likes}
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleLikeClick}
+          disabled={isLoading}
+          className={isLiked ? 'text-red-500 hover:text-red-600' : ''}
+        >
+          <Heart 
+            className={`w-4 h-4 mr-2 ${isLiked ? 'fill-current' : ''}`} 
+          />
+          {likes}
         </Button>
         <Link href={`/datasets/${dataset.id}`}>
           <Button size="sm">View Details</Button>

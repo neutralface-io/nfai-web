@@ -192,6 +192,20 @@ The AI Data Crowdsourcing Platform enables users to upload, manage, and label da
    - Add delete functionality to the dataset details page
    - Ensure authors can only delete their own datasets
 
+### 3.7 Search & Filtering
+#### Requirements:
+- Implement search functionality to find datasets by name or description
+- Implement filtering functionality to filter datasets by category, license, etc.
+
+#### Implementation Plan: 
+1. **Search Functionality**
+   - Add search functionality to the dataset listing page
+   - Implement search functionality to find datasets by name or description
+
+2. **Filtering Functionality**
+   - Add filtering functionality to the dataset listing page
+   - Implement filtering functionality to filter datasets by category, license, etc. 
+
 ---
 
 ## 4. Next Steps & Milestones

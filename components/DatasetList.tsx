@@ -2,110 +2,103 @@
 
 import { useState, useEffect } from 'react'
 import { DatasetCard } from './DatasetCard'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { getDatasets } from '@/lib/supabase'
+import { DatasetFilters } from './DatasetFilters'
 import { Dataset } from '@/types/dataset'
+import { getDatasets } from '@/lib/supabase'
 import { CreateDatasetModal } from './CreateDatasetModal'
-
-type SortOption = 'popular' | 'recent' | 'size' | 'category'
+import { Button } from './ui/button'
+import { SlidersHorizontal } from 'lucide-react'
 
 export function DatasetList() {
-  const [sortBy, setSortBy] = useState<SortOption>('recent')
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [filters, setFilters] = useState({
+    searchQuery: '',
+    category: 'All',
+    license: 'All'
+  })
+  const [appliedFilters, setAppliedFilters] = useState(filters)
+  const [isFiltersVisible, setIsFiltersVisible] = useState(false)
 
   useEffect(() => {
-    async function loadDatasets() {
-      try {
-        console.log('Loading datasets...')
-        setLoading(true)
-        const data = await getDatasets()
-        console.log('Loaded datasets:', data)
-        setDatasets(data)
-      } catch (err) {
-        console.error('Error loading datasets:', err)
-        setError('Failed to load datasets')
-      } finally {
-        setLoading(false)
-      }
-    }
-
     loadDatasets()
   }, [])
 
-  function sortDatasets(data: Dataset[], sort: SortOption): Dataset[] {
-    switch (sort) {
-      case 'popular':
-        return [...data].sort((a, b) => b.likes - a.likes)
-      case 'recent':
-        return [...data].sort((a, b) => 
-          new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime()
-        )
-      case 'size':
-        return [...data].sort((a, b) => b.size - a.size)
-      case 'category':
-        return [...data].sort((a, b) => 
-          a.category_tags[0]?.localeCompare(b.category_tags[0] || '') || 0
-        )
-      default:
-        return data
+  async function loadDatasets() {
+    try {
+      const data = await getDatasets()
+      setDatasets(data)
+    } catch (error) {
+      console.error('Error loading datasets:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  if (loading) {
-    return <div>Loading datasets...</div>
+  const handleApplyFilters = () => {
+    setAppliedFilters(filters)
   }
 
-  if (error) {
-    return <div className="text-red-600">{error}</div>
+  const handleResetFilters = () => {
+    const defaultFilters = {
+      searchQuery: '',
+      category: 'All',
+      license: 'All'
+    }
+    setFilters(defaultFilters)
+    setAppliedFilters(defaultFilters)
   }
 
-  if (datasets.length === 0) {
-    return (
-      <div className="text-center py-8 text-gray-500">
-        No datasets available. Create one to get started!
-      </div>
-    )
-  }
+  const filteredDatasets = datasets.filter(dataset => {
+    const matchesSearch = appliedFilters.searchQuery.trim() === '' || 
+      dataset.name.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+      dataset.description.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase())
+
+    const matchesCategory = appliedFilters.category === 'All' || 
+      dataset.category_tags.includes(appliedFilters.category.toLowerCase())
+
+    const matchesLicense = appliedFilters.license === 'All' || 
+      dataset.license === appliedFilters.license
+
+    return matchesSearch && matchesCategory && matchesLicense
+  })
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">Available Datasets</h2>
-        <div className="flex gap-4">
-          <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort by..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="popular">Most Popular</SelectItem>
-              <SelectItem value="recent">Recently Added</SelectItem>
-              <SelectItem value="size">Size</SelectItem>
-              <SelectItem value="category">Category</SelectItem>
-            </SelectContent>
-          </Select>
-          <CreateDatasetModal />
+    <div className="space-y-6 p-6">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold">Available Datasets</h1>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-gray-500 hover:text-gray-900"
+            onClick={() => setIsFiltersVisible(!isFiltersVisible)}
+          >
+            <SlidersHorizontal className="h-4 w-4 mr-2" />
+            {isFiltersVisible ? 'Hide filters' : 'Show filters'}
+          </Button>
         </div>
+        <CreateDatasetModal />
       </div>
 
-      {datasets.length === 0 ? (
+      <DatasetFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        onApplyFilters={handleApplyFilters}
+        onResetFilters={handleResetFilters}
+        isVisible={isFiltersVisible}
+      />
+
+      {loading ? (
+        <div className="text-center py-8">Loading datasets...</div>
+      ) : filteredDatasets.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
-          No datasets found
+          No datasets found matching your criteria
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {datasets.map((dataset) => (
-            <DatasetCard
-              key={dataset.id}
-              dataset={dataset}
-            />
+          {filteredDatasets.map((dataset) => (
+            <DatasetCard key={dataset.id} dataset={dataset} />
           ))}
         </div>
       )}

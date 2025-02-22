@@ -340,4 +340,57 @@ export async function updateUserProfile(profile: UserProfile) {
     console.error('Profile update error:', error)
     throw error
   }
+}
+
+export async function getLikedDatasets(walletAddress: string) {
+  const { data } = await supabase
+    .from('dataset_likes')
+    .select('dataset_id')
+    .eq('wallet_address', walletAddress)
+
+  return new Set(data?.map(like => like.dataset_id) || [])
+}
+
+export async function toggleLike(datasetId: string, walletAddress: string) {
+  try {
+    console.log('Toggling like for dataset:', datasetId, 'wallet:', walletAddress)
+
+    // First ensure the user exists
+    const { error: userError } = await supabase
+      .from('users')
+      .upsert({
+        wallet_address: walletAddress,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'wallet_address',
+      })
+
+    if (userError) {
+      console.error('Error ensuring user exists:', userError)
+      throw userError
+    }
+
+    // Now toggle the like
+    const { data, error } = await supabase
+      .rpc('toggle_like', {
+        dataset_id: datasetId,
+        wallet_address: walletAddress
+      })
+
+    if (error) {
+      console.error('Error toggling like:', error)
+      throw new Error(error.message || 'Failed to toggle like')
+    }
+
+    if (typeof data !== 'number') {
+      throw new Error('Invalid response from toggle_like')
+    }
+
+    console.log('New like count:', data)
+    return data
+  } catch (error) {
+    console.error('Toggle like error:', error)
+    throw error
+  }
 } 

@@ -3,8 +3,8 @@
 import { Dataset } from '@/types/dataset'
 import { Button } from './ui/button'
 import { Heart, ArrowLeft } from 'lucide-react'
-import { useState } from 'react'
-import { likeDataset, uploadDatasetFile, deleteDataset } from '@/lib/supabase'
+import { useState, useEffect } from 'react'
+import { likeDataset, uploadDatasetFile, deleteDataset, getLikedDatasets, toggleLike } from '@/lib/supabase'
 import { Input } from './ui/input'
 import { useRouter } from 'next/navigation'
 import { useWallet } from '@solana/wallet-adapter-react'
@@ -19,6 +19,7 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
   const { publicKey } = useWallet()
   const router = useRouter()
   const [likes, setLikes] = useState(dataset.likes)
+  const [isLiked, setIsLiked] = useState(false)
   const [isLiking, setIsLiking] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -27,13 +28,33 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
   
   const isOwner = publicKey?.toBase58() === dataset.created_by
 
-  async function handleLike() {
+  useEffect(() => {
+    async function checkIfLiked() {
+      if (!publicKey) return
+      try {
+        const likedDatasets = await getLikedDatasets(publicKey.toBase58())
+        setIsLiked(likedDatasets.has(dataset.id))
+      } catch (error) {
+        console.error('Error checking liked status:', error)
+      }
+    }
+
+    checkIfLiked()
+  }, [publicKey, dataset.id])
+
+  async function handleLikeClick() {
+    if (!publicKey) {
+      alert('Please connect your wallet to like datasets')
+      return
+    }
+
     try {
       setIsLiking(true)
-      await likeDataset(dataset.id)
-      setLikes(prev => prev + 1)
+      const newLikeCount = await toggleLike(dataset.id, publicKey.toBase58())
+      setLikes(newLikeCount)
+      setIsLiked(!isLiked)
     } catch (error) {
-      console.error('Error liking dataset:', error)
+      console.error('Error toggling like:', error)
     } finally {
       setIsLiking(false)
     }
@@ -121,10 +142,13 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
             )}
             <Button 
               variant="outline" 
-              onClick={handleLike}
+              onClick={handleLikeClick}
               disabled={isLiking}
+              className={isLiked ? 'text-red-500 hover:text-red-600' : ''}
             >
-              <Heart className="w-4 h-4 mr-2" />
+              <Heart 
+                className={`w-4 h-4 mr-2 ${isLiked ? 'fill-current' : ''}`} 
+              />
               {likes}
             </Button>
           </div>

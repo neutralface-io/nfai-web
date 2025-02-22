@@ -1,209 +1,140 @@
-# Neutral Face
+# DataDAO - AI Dataset Crowdsourcing Platform
 
-A platform for uploading, managing, and labeling datasets for AI model training and RAG pipelines.
+A decentralized platform for sharing and discovering AI training datasets, built with Next.js, Supabase, and Solana.
+
+## Features
+
+### Authentication
+- ✅ Solana wallet-based authentication
+- ✅ User profiles with customizable usernames
+- ✅ Real-time profile updates
+
+### Dataset Management
+- ✅ Create and upload datasets
+- ✅ Edit dataset metadata
+- ✅ Delete datasets (owner only)
+- ✅ File upload support
+- ✅ Dataset ownership verification
+
+### Discovery & Search
+- ✅ Typeahead search with instant results
+- ✅ Advanced filtering by category and license
+- ✅ Collapsible filter interface
+- ✅ Like/unlike datasets
+- ✅ Dataset preview
+
+### User Interface
+- ✅ Responsive design
+- ✅ Clean, modern UI with Shadcn components
+- ✅ Real-time updates
+- ✅ Loading states and error handling
+- ✅ Mobile-friendly layout
 
 ## Tech Stack
 
-- **Frontend:** Next.js 14, Shadcn UI, Tailwind CSS, Lucide Icons
-- **Backend:** Supabase (PostgreSQL, Authentication, Storage)
-- **Authentication:** Solana Wallet Adapter
-- **Blockchain:** Solana (Devnet for development)
-
-## Prerequisites
-
-Before you begin, ensure you have installed:
-- Node.js 18.17 or later
-- npm or yarn package manager
-- A Supabase account and project
-- Phantom Wallet browser extension
+- **Frontend**: Next.js 14, React, TypeScript
+- **Styling**: Tailwind CSS, Shadcn UI
+- **Backend**: Supabase (PostgreSQL)
+- **Authentication**: Solana Wallet Adapter
+- **Storage**: Supabase Storage
+- **State Management**: React Hooks + Context
+- **Icons**: Lucide Icons
 
 ## Getting Started
 
-1. **Clone the repository**
-
+1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd neutral-face
+git clone https://github.com/yourusername/datadao.git
+cd datadao
 ```
 
-2. **Install dependencies**
-
+2. Install dependencies:
 ```bash
 npm install
-# or
-yarn install
 ```
 
-3. **Install required packages**
-
+3. Set up environment variables:
 ```bash
-# Install core dependencies
-npm install @supabase/supabase-js lucide-react
-
-# Install Solana dependencies
-npm install \
-  @solana/web3.js \
-  @solana/wallet-adapter-react \
-  @solana/wallet-adapter-base \
-  @solana/wallet-adapter-wallets \
-  @solana/wallet-adapter-react-ui
-
-# Install Shadcn UI and its dependencies
-npm install -D @radix-ui/react-select
-npm install -D @radix-ui/react-slot
-npm install -D class-variance-authority
-npm install -D clsx
-npm install -D tailwind-merge
+cp .env.example .env.local
 ```
+Fill in your Supabase and other configuration details.
 
-4. **Install and Configure Shadcn UI**
-
-```bash
-# Initialize Shadcn UI
-npx shadcn init
-
-# Install required components
-npx shadcn add select
-npx shadcn add button
-npx shadcn add dialog
-npx shadcn add input
-npx shadcn add label
-npx shadcn add textarea
-npx shadcn add tooltip
-npx shadcn add dropdown-menu
-```
-
-5. **Environment Setup**
-
-Copy the `.env.local.example` file to `.env.local`:
-
-```bash
-cp .env.local.example .env.local
-```
-
-Then update the `.env.local` file with your credentials:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-6. **Supabase Setup**
-
-Create the required tables in your Supabase database:
-
-```sql
--- Create datasets table
-CREATE TABLE datasets (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    description TEXT NOT NULL,
-    upload_date TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    size INT DEFAULT 0,
-    category_tags TEXT[] DEFAULT '{}',
-    likes INT DEFAULT 0,
-    file_url TEXT,
-    visibility TEXT DEFAULT 'public',
-    license TEXT,
-    created_by TEXT NOT NULL -- Solana wallet address
-);
-
--- Create users table
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    wallet_address TEXT UNIQUE NOT NULL,
-    username TEXT UNIQUE,
-    email TEXT UNIQUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
--- Add foreign key constraint to link datasets with users
-ALTER TABLE datasets
-ADD CONSTRAINT datasets_created_by_fkey 
-FOREIGN KEY (created_by) 
-REFERENCES users(wallet_address);
-
--- Create an index on wallet_address for faster lookups
-CREATE INDEX users_wallet_address_idx ON users(wallet_address);
-```
-
-7. **Run the development server**
-
+4. Run the development server:
 ```bash
 npm run dev
-# or
-yarn dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Project Structure
 
 ```
-├── app/
-│   ├── layout.tsx        # Root layout with providers
-│   ├── page.tsx          # Main landing page
-│   └── profile/
-│       └── page.tsx      # User profile page
-├── components/
-│   ├── DatasetCard.tsx   # Dataset card component
-│   ├── DatasetList.tsx   # Dataset listing component
-│   ├── Navbar.tsx        # Navigation bar with wallet
-│   ├── UserProfile.tsx   # User profile management
-│   ├── WalletButton.tsx  # Wallet connect button
-│   └── providers/
-│       ├── ClientOnly.tsx    # Client-side rendering wrapper
-│       └── WalletProvider.tsx # Solana wallet provider
-├── lib/
-│   └── supabase.ts       # Supabase client configuration
-└── types/
-    └── dataset.ts        # TypeScript interfaces
+datadao/
+├── app/                 # Next.js app router
+├── components/         # React components
+│   ├── ui/            # Shadcn UI components
+│   └── ...            # Custom components
+├── lib/               # Utility functions
+├── public/            # Static assets
+└── types/             # TypeScript types
 ```
 
-## Features
+## Key Components
 
-- Solana Wallet Authentication
-- User Profile Management
-  - Username and email association
-  - Profile editing
-- Dataset Management
-  - Dataset listing with sorting options
-  - Dataset cards showing metadata
-  - Like functionality
-  - File upload and preview
-  - Dataset ownership and author display
-  - Edit and delete capabilities for dataset owners
-- Responsive design
-- Integration with Supabase backend
+- `DatasetList`: Main dataset listing with filters
+- `DatasetCard`: Individual dataset display
+- `SearchBar`: Typeahead search component
+- `WalletButton`: Solana wallet integration
+- `DatasetFilters`: Advanced filtering interface
 
-## Development
+## Database Schema
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Users Table
+```sql
+CREATE TABLE users (
+  wallet_address TEXT PRIMARY KEY,
+  username TEXT UNIQUE,
+  email TEXT UNIQUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
-This project uses:
-- [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) for optimized fonts
-- [Tailwind CSS](https://tailwindcss.com/) for styling
-- [Shadcn UI](https://ui.shadcn.com/) for UI components
-- [Supabase](https://supabase.com/) for backend services
-- [Solana Web3.js](https://solana-labs.github.io/solana-web3.js/) for blockchain integration
+### Datasets Table
+```sql
+CREATE TABLE datasets (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  description TEXT,
+  created_by TEXT REFERENCES users(wallet_address),
+  upload_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  size INTEGER DEFAULT 0,
+  category_tags TEXT[],
+  likes INTEGER DEFAULT 0,
+  file_url TEXT,
+  visibility TEXT DEFAULT 'public',
+  license TEXT
+);
+```
 
-## Learn More
+### Dataset Likes Table
+```sql
+CREATE TABLE dataset_likes (
+  dataset_id UUID REFERENCES datasets(id) ON DELETE CASCADE,
+  wallet_address TEXT REFERENCES users(wallet_address) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  PRIMARY KEY (dataset_id, wallet_address)
+);
+```
 
-To learn more about the technologies used in this project:
+## Contributing
 
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Supabase Documentation](https://supabase.com/docs)
-- [Solana Documentation](https://docs.solana.com/)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
-- [Shadcn UI Documentation](https://ui.shadcn.com/)
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new).
-
-Check out the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-# Optional: Additional environment variables for future use
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_SITE_NAME="Neutral Face"
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
