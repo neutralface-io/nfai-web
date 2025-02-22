@@ -516,7 +516,8 @@ export async function getCollectionById(id: string) {
             author:users!datasets_created_by_fkey (
               username,
               wallet_address
-            )
+            ),
+            collection_count:collection_items(count)
           )
         )
       `)
@@ -524,6 +525,18 @@ export async function getCollectionById(id: string) {
       .single()
 
     if (error) throw error
+
+    // Transform the data to include collection counts
+    if (data && data.datasets) {
+      data.datasets = data.datasets.map(item => ({
+        ...item,
+        dataset: {
+          ...item.dataset,
+          collection_count: item.dataset.collection_count.length
+        }
+      }))
+    }
+
     return data
   } catch (error) {
     console.error('Error in getCollectionById:', error)

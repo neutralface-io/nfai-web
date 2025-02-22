@@ -77,23 +77,12 @@ export function CollectionDetail({ collectionId }: CollectionDetailProps) {
     try {
       await removeFromCollection(collectionId, datasetId)
       
-      // Update the dataset's collection count in the current view
+      // Immediately update the UI by filtering out the removed dataset
       setCollection(prev => {
         if (!prev) return prev
         return {
           ...prev,
-          datasets: prev.datasets?.map(item => {
-            if (item.dataset.id === datasetId) {
-              return {
-                ...item,
-                dataset: {
-                  ...item.dataset,
-                  collection_count: Math.max(0, item.dataset.collection_count - 1)
-                }
-              }
-            }
-            return item
-          })
+          datasets: prev.datasets?.filter(item => item.dataset.id !== datasetId)
         }
       })
       
