@@ -206,6 +206,18 @@ The AI Data Crowdsourcing Platform enables users to upload, manage, and label da
    - Add filtering functionality to the dataset listing page
    - Implement filtering functionality to filter datasets by category, license, etc. 
 
+### 3.8 Dataset Collections
+#### Requirements:  
+- Allow users to create and manage collections of datasets
+- Allow users to add datasets to collections
+- Allow users to remove datasets from collections
+
+#### Implementation Plan:
+1. **Collection Management**
+   - Create a collection management page to allow users to create and manage collections
+   - Allow users to add datasets to collections
+   - Allow users to remove datasets from collections
+
 ---
 
 ## 4. Next Steps & Milestones

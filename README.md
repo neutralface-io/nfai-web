@@ -15,13 +15,23 @@ A decentralized platform for sharing and discovering AI training datasets, built
 - ✅ Delete datasets (owner only)
 - ✅ File upload support
 - ✅ Dataset ownership verification
+- ✅ Like/unlike datasets
 
 ### Discovery & Search
 - ✅ Typeahead search with instant results
 - ✅ Advanced filtering by category and license
 - ✅ Collapsible filter interface
-- ✅ Like/unlike datasets
 - ✅ Dataset preview
+- ✅ Responsive grid layout
+
+### Collections
+- ✅ Create personal collections
+- ✅ Add/remove datasets to collections
+- ✅ Share collections with other users
+- ✅ Public/private collection visibility
+- ✅ Delete collections (owner only)
+- ✅ Collection management interface
+- ✅ Share collections via wallet address
 
 ### User Interface
 - ✅ Responsive design
@@ -29,6 +39,9 @@ A decentralized platform for sharing and discovering AI training datasets, built
 - ✅ Real-time updates
 - ✅ Loading states and error handling
 - ✅ Mobile-friendly layout
+- ✅ Navigation with active states
+- ✅ Toast notifications
+- ✅ Confirmation dialogs
 
 ## Tech Stack
 
@@ -39,6 +52,7 @@ A decentralized platform for sharing and discovering AI training datasets, built
 - **Storage**: Supabase Storage
 - **State Management**: React Hooks + Context
 - **Icons**: Lucide Icons
+- **Notifications**: Sonner
 
 ## Getting Started
 
@@ -53,18 +67,31 @@ cd datadao
 npm install
 ```
 
-3. Set up environment variables:
+3. Install Shadcn UI components:
+```bash
+npx shadcn-ui@latest init
+npx shadcn-ui@latest add button
+npx shadcn-ui@latest add dialog
+npx shadcn-ui@latest add input
+npx shadcn-ui@latest add label
+npx shadcn-ui@latest add textarea
+npx shadcn-ui@latest add switch
+npx shadcn-ui@latest add alert-dialog
+npx shadcn-ui@latest add sonner
+```
+
+4. Set up environment variables:
 ```bash
 cp .env.example .env.local
 ```
 Fill in your Supabase and other configuration details.
 
-4. Run the development server:
+5. Run the development server:
 ```bash
 npm run dev
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+6. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Project Structure
 
@@ -73,7 +100,7 @@ datadao/
 ├── app/                 # Next.js app router
 ├── components/         # React components
 │   ├── ui/            # Shadcn UI components
-│   └── ...            # Custom components
+│   └── collections/   # Collection components
 ├── lib/               # Utility functions
 ├── public/            # Static assets
 └── types/             # TypeScript types
@@ -86,6 +113,10 @@ datadao/
 - `SearchBar`: Typeahead search component
 - `WalletButton`: Solana wallet integration
 - `DatasetFilters`: Advanced filtering interface
+- `CollectionsList`: Collections management
+- `CollectionCard`: Individual collection display
+- `CreateCollectionModal`: Collection creation interface
+- `ShareCollectionDialog`: Collection sharing dialog
 
 ## Database Schema
 
@@ -117,13 +148,32 @@ CREATE TABLE datasets (
 );
 ```
 
-### Dataset Likes Table
+### Collections Tables
 ```sql
-CREATE TABLE dataset_likes (
-  dataset_id UUID REFERENCES datasets(id) ON DELETE CASCADE,
-  wallet_address TEXT REFERENCES users(wallet_address) ON DELETE CASCADE,
+-- Collections table
+CREATE TABLE collections (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  description TEXT,
+  created_by TEXT REFERENCES users(wallet_address),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  PRIMARY KEY (dataset_id, wallet_address)
+  is_public BOOLEAN DEFAULT false
+);
+
+-- Collection items (datasets in collections)
+CREATE TABLE collection_items (
+  collection_id UUID REFERENCES collections(id) ON DELETE CASCADE,
+  dataset_id UUID REFERENCES datasets(id) ON DELETE CASCADE,
+  added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  PRIMARY KEY (collection_id, dataset_id)
+);
+
+-- Collection sharing
+CREATE TABLE collection_shares (
+  collection_id UUID REFERENCES collections(id) ON DELETE CASCADE,
+  shared_with TEXT REFERENCES users(wallet_address) ON DELETE CASCADE,
+  shared_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  PRIMARY KEY (collection_id, shared_with)
 );
 ```
 

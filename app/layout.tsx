@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SolanaWalletProvider } from '@/components/providers/WalletProvider'
 import { Navbar } from '@/components/Navbar'
+import { Toaster } from 'sonner'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,7 @@ export default function RootLayout({
           <Navbar />
           {children}
         </SolanaWalletProvider>
+        <Toaster />
       </body>
     </html>
   );

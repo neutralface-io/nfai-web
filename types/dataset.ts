@@ -6,14 +6,15 @@ export interface Dataset {
   size: number
   category_tags: string[]
   likes: number
-  file_url: string | null
+  file_url?: string
   visibility: string
   license: string
   created_by: string
   author?: {
-    username: string | null
+    username: string
     wallet_address: string
   }
+  collection_count: number
 }
 
 export interface CreateDatasetParams {

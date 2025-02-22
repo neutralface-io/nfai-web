@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { Dataset } from '@/types/dataset'
+import { Collection } from '@/types/collection'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -15,7 +16,8 @@ export async function getDatasets() {
         author:users!datasets_created_by_fkey (
           username,
           wallet_address
-        )
+        ),
+        collection_count:collection_items(count)
       `)
       .order('upload_date', { ascending: false })
 
@@ -24,7 +26,10 @@ export async function getDatasets() {
       throw error
     }
 
-    return data || []
+    return data?.map(dataset => ({
+      ...dataset,
+      collection_count: dataset.collection_count.length
+    })) || []
   } catch (error) {
     console.error('Error in getDatasets:', error)
     return []
@@ -40,7 +45,8 @@ export async function getDatasetById(id: string) {
         author:users!datasets_created_by_fkey (
           username,
           wallet_address
-        )
+        ),
+        collection_count:collection_items(count)
       `)
       .eq('id', id)
       .single()
@@ -54,7 +60,11 @@ export async function getDatasetById(id: string) {
       throw new Error('Dataset not found')
     }
 
-    return data as Dataset
+    // Transform the data to include the collection count
+    return {
+      ...data,
+      collection_count: data.collection_count.length
+    } as Dataset
   } catch (error) {
     console.error('Error in getDatasetById:', error)
     throw error
@@ -393,4 +403,154 @@ export async function toggleLike(datasetId: string, walletAddress: string) {
     console.error('Toggle like error:', error)
     throw error
   }
+}
+
+// Get user's collections (created or shared with them)
+export async function getUserCollections(walletAddress: string) {
+  try {
+    // First get collections created by the user
+    const { data: ownedCollections, error: ownedError } = await supabase
+      .from('collections')
+      .select(`
+        *,
+        datasets:collection_items(
+          dataset:datasets(*)
+        )
+      `)
+      .eq('created_by', walletAddress)
+      .order('created_at', { ascending: false })
+
+    if (ownedError) throw ownedError
+
+    // Then get collections shared with the user
+    const { data: sharedCollections, error: sharedError } = await supabase
+      .from('collection_shares')
+      .select(`
+        collection:collections (
+          *,
+          datasets:collection_items(
+            dataset:datasets(*)
+          )
+        )
+      `)
+      .eq('shared_with', walletAddress)
+
+    if (sharedError) throw sharedError
+
+    // Combine and return both sets
+    const shared = sharedCollections?.map(share => share.collection) || []
+    return [...(ownedCollections || []), ...shared]
+
+  } catch (error) {
+    console.error('Error in getUserCollections:', error)
+    return []
+  }
+}
+
+// Create a new collection
+export async function createCollection(collection: Partial<Collection>) {
+  const { data, error } = await supabase
+    .from('collections')
+    .insert(collection)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// Add dataset to collection
+export async function addToCollection(collectionId: string, datasetId: string) {
+  const { error } = await supabase
+    .from('collection_items')
+    .insert({ collection_id: collectionId, dataset_id: datasetId })
+
+  if (error) throw error
+}
+
+// Remove dataset from collection
+export async function removeFromCollection(collectionId: string, datasetId: string) {
+  const { error } = await supabase
+    .from('collection_items')
+    .delete()
+    .match({ collection_id: collectionId, dataset_id: datasetId })
+
+  if (error) throw error
+}
+
+// Share collection with user
+export async function shareCollection(collectionId: string, walletAddress: string) {
+  const { error } = await supabase
+    .from('collection_shares')
+    .insert({ collection_id: collectionId, shared_with: walletAddress })
+
+  if (error) throw error
+}
+
+// Delete a collection
+export async function deleteCollection(collectionId: string) {
+  try {
+    // Delete collection (cascade will handle items and shares)
+    const { error } = await supabase
+      .from('collections')
+      .delete()
+      .eq('id', collectionId)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('Error deleting collection:', error)
+    throw error
+  }
+}
+
+// Get collection by ID
+export async function getCollectionById(id: string) {
+  try {
+    const { data, error } = await supabase
+      .from('collections')
+      .select(`
+        *,
+        datasets:collection_items(
+          dataset:datasets(
+            *,
+            author:users!datasets_created_by_fkey (
+              username,
+              wallet_address
+            )
+          )
+        )
+      `)
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error('Error in getCollectionById:', error)
+    throw error
+  }
+}
+
+// Add this function to get collection count for a dataset
+export async function getDatasetCollectionCount(datasetId: string) {
+  const { count, error } = await supabase
+    .from('collection_items')
+    .select('*', { count: 'exact', head: true })
+    .eq('dataset_id', datasetId)
+
+  if (error) throw error
+  return count || 0
+}
+
+// Update collection
+export async function updateCollection(id: string, updates: Partial<Collection>) {
+  const { data, error } = await supabase
+    .from('collections')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
 } 
