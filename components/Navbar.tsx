@@ -26,9 +26,14 @@ export function Navbar() {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <div className="flex items-center gap-8 flex-1">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-lg">
-              😐
-            </div>
+            <Image
+              src="/logo-neutral-face.png"
+              alt="Neutral Face"
+              width={32}
+              height={32}
+              className="rounded-full"
+              priority
+            />
             <span className="font-bold text-xl">Neutral Face</span>
           </Link>
           <div className="hidden md:flex items-center gap-6">

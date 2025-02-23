@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SolanaWalletProvider } from '@/components/providers/WalletProvider'
 import { Navbar } from '@/components/Navbar'
+import { Footer } from '@/components/Footer'
 import { Toaster } from 'sonner'
 
 const geistSans = Geist({
@@ -29,13 +30,16 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="h-full">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-full flex flex-col`}
       >
         <SolanaWalletProvider>
           <Navbar />
-          {children}
+          <main className="flex-1">
+            {children}
+          </main>
+          <Footer />
         </SolanaWalletProvider>
         <Toaster />
       </body>
