@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { WalletButton } from './WalletButton'
 import { SearchBar } from './SearchBar'
 import { usePathname } from 'next/navigation'
@@ -24,8 +25,11 @@ export function Navbar() {
     <nav className="border-b bg-white">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <div className="flex items-center gap-8 flex-1">
-          <Link href="/" className="font-bold text-xl">
-            DataDAO
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-lg">
+              😐
+            </div>
+            <span className="font-bold text-xl">Neutral Face</span>
           </Link>
           <div className="hidden md:flex items-center gap-6">
             {navItems.map(item => (
