@@ -1,65 +1,53 @@
-# DataDAO - AI Dataset Crowdsourcing Platform
+# Dataset Marketplace
 
-A decentralized platform for sharing and discovering AI training datasets, built with Next.js, Supabase, and Solana.
+A decentralized marketplace for datasets built on Solana, allowing users to share, discover, and manage datasets with built-in collection organization.
 
 ## Features
 
-### Authentication
-- ✅ Solana wallet-based authentication
-- ✅ User profiles with customizable usernames
-- ✅ Real-time profile updates
-
 ### Dataset Management
-- ✅ Create and upload datasets
-- ✅ Edit dataset metadata
-- ✅ Delete datasets (owner only)
-- ✅ File upload support
-- ✅ Dataset ownership verification
-- ✅ Like/unlike datasets
+- Upload and share datasets
+- Set visibility (public/private)
+- Add descriptions and metadata
+- Categorize with tags
+- Track dataset metrics (likes, collections)
+- File management and downloads
 
-### Discovery & Search
-- ✅ Typeahead search with instant results
-- ✅ Advanced filtering by category and license
-- ✅ Collapsible filter interface
-- ✅ Dataset preview
-- ✅ Responsive grid layout
+### Collection System
+- Create personal collections
+- Add/remove datasets to collections
+- View collection statistics
+- Edit collection details inline
+- Track dataset presence across collections
+- See personal vs. total collection counts
 
-### Collections
-- ✅ Create personal collections
-- ✅ Add/remove datasets to collections
-- ✅ Share collections with other users
-- ✅ Public/private collection visibility
-- ✅ Delete collections (owner only)
-- ✅ Collection management interface
-- ✅ Share collections via wallet address
+### Social Features
+- Like datasets
+- Follow creators
+- Share collections
+- Real-time updates
+- User profiles
 
 ### User Interface
-- ✅ Responsive design
-- ✅ Clean, modern UI with Shadcn components
-- ✅ Real-time updates
-- ✅ Loading states and error handling
-- ✅ Mobile-friendly layout
-- ✅ Navigation with active states
-- ✅ Toast notifications
-- ✅ Confirmation dialogs
+- Clean, modern design
+- Responsive layout
+- Inline editing
+- Tooltips and helpful information
+- Real-time feedback
+- Optimistic updates
 
-## Tech Stack
+## Technology Stack
 
 - **Frontend**: Next.js 14, React, TypeScript
-- **Styling**: Tailwind CSS, Shadcn UI
-- **Backend**: Supabase (PostgreSQL)
+- **UI Components**: shadcn/ui, Tailwind CSS
+- **Backend**: Supabase
+- **Blockchain**: Solana Web3.js
 - **Authentication**: Solana Wallet Adapter
-- **Storage**: Supabase Storage
-- **State Management**: React Hooks + Context
-- **Icons**: Lucide Icons
-- **Notifications**: Sonner
 
 ## Getting Started
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/datadao.git
-cd datadao
+git clone https://github.com/yourusername/dataset-marketplace.git
 ```
 
 2. Install dependencies:
@@ -67,115 +55,50 @@ cd datadao
 npm install
 ```
 
-3. Install Shadcn UI components:
-```bash
-npx shadcn-ui@latest init
-npx shadcn-ui@latest add button
-npx shadcn-ui@latest add dialog
-npx shadcn-ui@latest add input
-npx shadcn-ui@latest add label
-npx shadcn-ui@latest add textarea
-npx shadcn-ui@latest add switch
-npx shadcn-ui@latest add alert-dialog
-npx shadcn-ui@latest add sonner
+3. Set up environment variables:
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-4. Set up environment variables:
-```bash
-cp .env.example .env.local
-```
-Fill in your Supabase and other configuration details.
-
-5. Run the development server:
+4. Run the development server:
 ```bash
 npm run dev
 ```
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## Project Structure
-
-```
-datadao/
-├── app/                 # Next.js app router
-├── components/         # React components
-│   ├── ui/            # Shadcn UI components
-│   └── collections/   # Collection components
-├── lib/               # Utility functions
-├── public/            # Static assets
-└── types/             # TypeScript types
-```
-
-## Key Components
-
-- `DatasetList`: Main dataset listing with filters
-- `DatasetCard`: Individual dataset display
-- `SearchBar`: Typeahead search component
-- `WalletButton`: Solana wallet integration
-- `DatasetFilters`: Advanced filtering interface
-- `CollectionsList`: Collections management
-- `CollectionCard`: Individual collection display
-- `CreateCollectionModal`: Collection creation interface
-- `ShareCollectionDialog`: Collection sharing dialog
-
 ## Database Schema
 
-### Users Table
-```sql
-CREATE TABLE users (
-  wallet_address TEXT PRIMARY KEY,
-  username TEXT UNIQUE,
-  email TEXT UNIQUE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
+### Datasets
+- id: uuid
+- name: string
+- description: string
+- visibility: string
+- category_tags: string[]
+- license: string
+- created_by: string (wallet address)
+- upload_date: timestamp
+- size: number
+- likes: number
+- collection_count: number
+- file_url: string?
 
-### Datasets Table
-```sql
-CREATE TABLE datasets (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  description TEXT,
-  created_by TEXT REFERENCES users(wallet_address),
-  upload_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  size INTEGER DEFAULT 0,
-  category_tags TEXT[],
-  likes INTEGER DEFAULT 0,
-  file_url TEXT,
-  visibility TEXT DEFAULT 'public',
-  license TEXT
-);
-```
+### Collections
+- id: uuid
+- name: string
+- description: string
+- created_by: string (wallet address)
+- created_at: timestamp
 
-### Collections Tables
-```sql
--- Collections table
-CREATE TABLE collections (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  description TEXT,
-  created_by TEXT REFERENCES users(wallet_address),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  is_public BOOLEAN DEFAULT false
-);
+### Collection Items
+- collection_id: uuid
+- dataset_id: uuid
 
--- Collection items (datasets in collections)
-CREATE TABLE collection_items (
-  collection_id UUID REFERENCES collections(id) ON DELETE CASCADE,
-  dataset_id UUID REFERENCES datasets(id) ON DELETE CASCADE,
-  added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  PRIMARY KEY (collection_id, dataset_id)
-);
-
--- Collection sharing
-CREATE TABLE collection_shares (
-  collection_id UUID REFERENCES collections(id) ON DELETE CASCADE,
-  shared_with TEXT REFERENCES users(wallet_address) ON DELETE CASCADE,
-  shared_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  PRIMARY KEY (collection_id, shared_with)
-);
-```
+### Users
+- wallet_address: string
+- username: string?
+- email: string?
+- created_at: timestamp
+- updated_at: timestamp
 
 ## Contributing
 

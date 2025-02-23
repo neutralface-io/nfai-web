@@ -16,20 +16,12 @@ export async function getDatasets() {
         author:users!datasets_created_by_fkey (
           username,
           wallet_address
-        ),
-        collection_count:collection_items(count)
+        )
       `)
       .order('upload_date', { ascending: false })
 
-    if (error) {
-      console.error('Error fetching datasets:', error)
-      throw error
-    }
-
-    return data?.map(dataset => ({
-      ...dataset,
-      collection_count: dataset.collection_count.length
-    })) || []
+    if (error) throw error
+    return data || []
   } catch (error) {
     console.error('Error in getDatasets:', error)
     return []
@@ -45,26 +37,14 @@ export async function getDatasetById(id: string) {
         author:users!datasets_created_by_fkey (
           username,
           wallet_address
-        ),
-        collection_count:collection_items(count)
+        )
       `)
       .eq('id', id)
       .single()
 
-    if (error) {
-      console.error('Error fetching dataset:', error)
-      throw error
-    }
-
-    if (!data) {
-      throw new Error('Dataset not found')
-    }
-
-    // Transform the data to include the collection count
-    return {
-      ...data,
-      collection_count: data.collection_count.length
-    } as Dataset
+    if (error) throw error
+    if (!data) throw new Error('Dataset not found')
+    return data as Dataset
   } catch (error) {
     console.error('Error in getDatasetById:', error)
     throw error
@@ -516,8 +496,7 @@ export async function getCollectionById(id: string) {
             author:users!datasets_created_by_fkey (
               username,
               wallet_address
-            ),
-            collection_count:collection_items(count)
+            )
           )
         )
       `)
@@ -525,18 +504,6 @@ export async function getCollectionById(id: string) {
       .single()
 
     if (error) throw error
-
-    // Transform the data to include collection counts
-    if (data && data.datasets) {
-      data.datasets = data.datasets.map(item => ({
-        ...item,
-        dataset: {
-          ...item.dataset,
-          collection_count: item.dataset.collection_count.length
-        }
-      }))
-    }
-
     return data
   } catch (error) {
     console.error('Error in getCollectionById:', error)
@@ -566,4 +533,33 @@ export async function updateCollection(id: string, updates: Partial<Collection>)
 
   if (error) throw error
   return data
+}
+
+// Get count of user's collections containing a dataset
+export async function getUserCollectionCount(datasetId: string, walletAddress: string) {
+  try {
+    // First get the user's collection IDs
+    const { data: collections, error: collectionsError } = await supabase
+      .from('collections')
+      .select('id')
+      .eq('created_by', walletAddress)
+
+    if (collectionsError) throw collectionsError
+    
+    // If user has no collections, return 0
+    if (!collections || collections.length === 0) return 0
+
+    // Then count how many of these collections contain the dataset
+    const { count, error } = await supabase
+      .from('collection_items')
+      .select('*', { count: 'exact', head: true })
+      .eq('dataset_id', datasetId)
+      .in('collection_id', collections.map(c => c.id))
+
+    if (error) throw error
+    return count || 0
+  } catch (error) {
+    console.error('Error getting user collection count:', error)
+    return 0
+  }
 } 

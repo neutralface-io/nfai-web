@@ -2,12 +2,13 @@
 
 import { Calendar, Heart, HardDrive, Tag, Crown, FolderPlus, Folders } from 'lucide-react'
 import { Button } from './ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 import Link from 'next/link'
 import { Dataset } from '../types/dataset'
 import { getDisplayName } from '@/lib/utils'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useState, useEffect } from 'react'
-import { getLikedDatasets, toggleLike } from '@/lib/supabase'
+import { getLikedDatasets, toggleLike, getUserCollectionCount } from '@/lib/supabase'
 import { AddToCollectionDialog } from './collections/AddToCollectionDialog'
 
 interface DatasetCardProps {
@@ -27,19 +28,25 @@ export function DatasetCard({
   const [isLiked, setIsLiked] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [showAddToCollection, setShowAddToCollection] = useState(false)
+  const [userCollectionCount, setUserCollectionCount] = useState(0)
 
   useEffect(() => {
-    async function checkIfLiked() {
+    async function loadData() {
       if (!publicKey) return
       try {
+        // Check if liked
         const likedDatasets = await getLikedDatasets(publicKey.toBase58())
         setIsLiked(likedDatasets.has(dataset.id))
+        
+        // Get user's collection count for this dataset
+        const count = await getUserCollectionCount(dataset.id, publicKey.toBase58())
+        setUserCollectionCount(count)
       } catch (error) {
-        console.error('Error checking liked status:', error)
+        console.error('Error loading dataset data:', error)
       }
     }
 
-    checkIfLiked()
+    loadData()
   }, [publicKey, dataset.id])
 
   async function handleLikeClick() {
@@ -148,10 +155,27 @@ export function DatasetCard({
               {showLikes && likes}
             </Button>
 
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Folders className="h-4 w-4" />
-              <span>{dataset.collection_count}</span>
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Folders className="h-4 w-4" />
+                    <span>
+                      {dataset.collection_count}
+                      {userCollectionCount > 0 && (
+                        <span className="text-muted-foreground ml-1">({userCollectionCount})</span>
+                      )}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>In {dataset.collection_count} total collections</p>
+                  {userCollectionCount > 0 && (
+                    <p>Including {userCollectionCount} of your collections</p>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           <Link href={`/datasets/${dataset.id}`}>
