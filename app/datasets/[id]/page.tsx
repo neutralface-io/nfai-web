@@ -3,7 +3,8 @@
 import { DatasetDetails } from '@/components/DatasetDetails'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
-import { use } from 'react'
+import { useRouter } from 'next/navigation'
+import { use, useEffect, useState } from 'react'
 
 // Make the page a Server Component
 export default function DatasetPage({
@@ -11,8 +12,25 @@ export default function DatasetPage({
 }: {
   params: { id: string }
 }) {
+  const router = useRouter()
   // Unwrap the params
   const { id } = use(params)
+  const [backText, setBackText] = useState('Back')
+
+  useEffect(() => {
+    // Get the previous page URL
+    const referrer = document.referrer
+    
+    if (referrer) {
+      if (referrer.includes('/collections')) {
+        setBackText('Back to Collections')
+      } else if (referrer.includes('/datasets')) {
+        setBackText('Back to Datasets')
+      } else if (referrer.includes('/search')) {
+        setBackText('Back to Search Results')
+      }
+    }
+  }, [])
 
   return (
     <div className="container mx-auto px-6 py-8">
@@ -21,14 +39,11 @@ export default function DatasetPage({
         <Button
           variant="ghost"
           size="sm"
-          href="/datasets"
-          asChild
+          onClick={() => router.back()}
           className="text-muted-foreground"
         >
-          <a>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Datasets
-          </a>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          {backText}
         </Button>
       </div>
 
