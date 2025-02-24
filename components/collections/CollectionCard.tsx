@@ -3,10 +3,8 @@
 import { useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { Collection } from '@/types/collection'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
-import { Share2, Trash2 } from 'lucide-react'
-import { ShareCollectionDialog } from './ShareCollectionDialog'
+import { Trash2, Folders } from 'lucide-react'
 import { deleteCollection } from '@/lib/supabase'
 import { toast } from 'sonner'
 import {
@@ -19,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 interface CollectionCardProps {
   collection: Collection
@@ -28,11 +26,18 @@ interface CollectionCardProps {
 
 export function CollectionCard({ collection, onUpdate }: CollectionCardProps) {
   const { publicKey } = useWallet()
-  const [showShareDialog, setShowShareDialog] = useState(false)
+  const router = useRouter()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const isOwner = publicKey?.toString() === collection.created_by
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) {
+      return
+    }
+    router.push(`/collections/${collection.id}`)
+  }
 
   const handleDelete = async () => {
     try {
@@ -51,47 +56,44 @@ export function CollectionCard({ collection, onUpdate }: CollectionCardProps) {
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle>{collection.name}</CardTitle>
-              <CardDescription>{collection.description}</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setShowShareDialog(true)}>
-                <Share2 className="h-4 w-4" />
-              </Button>
-              {isOwner && (
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setShowDeleteDialog(true)}
-                  className="text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
+      <div 
+        onClick={handleCardClick}
+        className="group bg-card border rounded-lg shadow-sm hover:shadow transition-all cursor-pointer flex flex-col h-full"
+      >
+        <div className="p-6 flex-1">
+          <div className="flex justify-between items-start gap-4 mb-4">
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
+                {collection.name}
+              </h3>
+              <p className="text-sm text-muted-foreground line-clamp-2">
+                {collection.description || 'No description'}
+              </p>
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-gray-500">
-            {collection.datasets?.length || 0} datasets
-          </div>
-          <Link href={`/collections/${collection.id}`}>
-            <Button variant="link" className="px-0">
-              View Collection
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
 
-      <ShareCollectionDialog
-        collection={collection}
-        open={showShareDialog}
-        onOpenChange={setShowShareDialog}
-      />
+          <div className="flex items-center text-sm text-muted-foreground">
+            <Folders className="h-4 w-4 mr-2" />
+            <span>{collection.datasets?.length || 0} datasets</span>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t">
+          <div className="h-14 px-6 flex items-center justify-end">
+            {isOwner && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setShowDeleteDialog(true)}
+                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>

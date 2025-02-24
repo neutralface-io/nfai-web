@@ -2,9 +2,9 @@
 
 import { Dataset } from '@/types/dataset'
 import { Button } from './ui/button'
-import { Heart, ArrowLeft } from 'lucide-react'
+import { Heart, Trash2, Pencil } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { likeDataset, uploadDatasetFile, deleteDataset, getLikedDatasets, toggleLike } from '@/lib/supabase'
+import { likeDataset, uploadDatasetFile, deleteDataset, getLikedDatasets, toggleLike, getDatasetById, updateDataset } from '@/lib/supabase'
 import { Input } from './ui/input'
 import { useRouter } from 'next/navigation'
 import { useWallet } from '@solana/wallet-adapter-react'
@@ -12,35 +12,58 @@ import { getDisplayName } from '@/lib/utils'
 import { EditDatasetModal } from './EditDatasetModal'
 
 interface DatasetDetailsProps {
-  dataset: Dataset
+  datasetId: string
 }
 
-export function DatasetDetails({ dataset }: DatasetDetailsProps) {
+export function DatasetDetails({ datasetId }: DatasetDetailsProps) {
   const { publicKey } = useWallet()
   const router = useRouter()
-  const [likes, setLikes] = useState(dataset.likes)
+  const [dataset, setDataset] = useState<Dataset | null>(null)
+  const [likes, setLikes] = useState(0)
   const [isLiked, setIsLiked] = useState(false)
   const [isLiking, setIsLiking] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
-  const isOwner = publicKey?.toBase58() === dataset.created_by
+  const isOwner = publicKey?.toBase58() === dataset?.created_by
+
+  useEffect(() => {
+    async function loadDataset() {
+      try {
+        setIsLoading(true)
+        const data = await getDatasetById(datasetId)
+        if (data) {
+          setDataset(data)
+          setLikes(data.likes)
+        }
+      } catch (err) {
+        setError('Failed to load dataset')
+        console.error('Error loading dataset:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadDataset()
+  }, [datasetId])
 
   useEffect(() => {
     async function checkIfLiked() {
       if (!publicKey) return
       try {
         const likedDatasets = await getLikedDatasets(publicKey.toBase58())
-        setIsLiked(likedDatasets.has(dataset.id))
+        setIsLiked(likedDatasets.has(dataset?.id))
       } catch (error) {
         console.error('Error checking liked status:', error)
       }
     }
 
     checkIfLiked()
-  }, [publicKey, dataset.id])
+  }, [publicKey, dataset?.id])
 
   async function handleLikeClick() {
     if (!publicKey) {
@@ -50,7 +73,7 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
 
     try {
       setIsLiking(true)
-      const newLikeCount = await toggleLike(dataset.id, publicKey.toBase58())
+      const newLikeCount = await toggleLike(dataset?.id, publicKey.toBase58())
       setLikes(newLikeCount)
       setIsLiked(!isLiked)
     } catch (error) {
@@ -67,7 +90,7 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
     try {
       setUploadError(null)
       setIsUploading(true)
-      await uploadDatasetFile(dataset.id, file)
+      await uploadDatasetFile(dataset?.id, file)
       // Refresh the page to show updated file info
       window.location.reload()
     } catch (error) {
@@ -88,7 +111,7 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
     
     try {
       setIsDeleting(true)
-      await deleteDataset(dataset.id, publicKey.toBase58())
+      await deleteDataset(dataset?.id, publicKey.toBase58())
       router.push('/')
     } catch (error) {
       console.error('Error deleting dataset:', error)
@@ -102,55 +125,45 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
     window.location.reload() // Refresh to show updated data
   }
 
+  if (isLoading) {
+    return <div className="text-center py-8">Loading dataset...</div>
+  }
+
+  if (error || !dataset) {
+    return <div className="text-center py-8 text-red-500">{error || 'Dataset not found'}</div>
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <Button
-          variant="ghost"
-          className="mb-4"
-          onClick={() => router.back()}
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-
-        <div className="flex justify-between items-start">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-4xl font-bold mb-2">{dataset.name}</h1>
-            <p className="text-gray-600 mb-4">{dataset.description}</p>
-            <p className="text-muted-foreground">
-              By {getDisplayName(dataset.author)}
-            </p>
+            <h1 className="text-2xl font-semibold mb-2">{dataset.name}</h1>
+            <p className="text-muted-foreground">{dataset.description}</p>
           </div>
+          
           <div className="flex items-center gap-2">
             {isOwner && (
               <>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
+                  size="icon"
                   onClick={() => setIsEditModalOpen(true)}
+                  className="h-8 w-8"
                 >
-                  Edit
+                  <Pencil className="h-4 w-4" />
                 </Button>
-                <Button 
+                <Button
                   variant="destructive"
+                  size="icon"
                   onClick={handleDelete}
                   disabled={isDeleting}
+                  className="h-8 w-8"
                 >
-                  {isDeleting ? 'Deleting...' : 'Delete'}
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </>
             )}
-            <Button 
-              variant="outline" 
-              onClick={handleLikeClick}
-              disabled={isLiking}
-              className={isLiked ? 'text-red-500 hover:text-red-600' : ''}
-            >
-              <Heart 
-                className={`w-4 h-4 mr-2 ${isLiked ? 'fill-current' : ''}`} 
-              />
-              {likes}
-            </Button>
           </div>
         </div>
 
@@ -180,7 +193,18 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
           </div>
           <div className="bg-gray-50 p-4 rounded-lg">
             <div className="text-sm text-gray-500">Likes</div>
-            <div className="font-medium">{likes}</div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLikeClick}
+                disabled={isLiking}
+                className={`min-w-[64px] h-8 ${isLiked ? 'text-red-500 hover:text-red-600' : ''}`}
+              >
+                <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
+                <span className="ml-2 font-medium">{likes}</span>
+              </Button>
+            </div>
           </div>
         </div>
 

@@ -10,6 +10,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { useState, useEffect } from 'react'
 import { getLikedDatasets, toggleLike, getUserCollectionCount } from '@/lib/supabase'
 import { AddToCollectionDialog } from './collections/AddToCollectionDialog'
+import { useRouter } from 'next/navigation'
 
 interface DatasetCardProps {
   dataset: Dataset
@@ -23,6 +24,7 @@ export function DatasetCard({
   hideCollectionButton = false
 }: DatasetCardProps) {
   const { publicKey } = useWallet()
+  const router = useRouter()
   const isOwner = publicKey?.toBase58() === dataset.created_by
   const [likes, setLikes] = useState(dataset.likes)
   const [isLiked, setIsLiked] = useState(false)
@@ -70,51 +72,53 @@ export function DatasetCard({
     }
   }
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Prevent navigation if clicking on an interactive element
+    if (
+      (e.target as HTMLElement).closest('button') ||
+      (e.target as HTMLElement).closest('a')
+    ) {
+      return
+    }
+    router.push(`/datasets/${dataset.id}`)
+  }
+
   if (!dataset) {
     return null // Or return a placeholder/skeleton
   }
 
   return (
     <>
-      <div className={`bg-card border rounded-lg shadow-sm hover:shadow transition-shadow flex flex-col h-full ${
-        isOwner ? 'bg-muted/50 border-muted' : ''
-      }`}>
-        {/* Main content - will grow to fill space */}
+      <div 
+        className={`group bg-card border rounded-lg shadow-sm hover:shadow transition-all cursor-pointer flex flex-col h-full ${
+          isOwner ? 'bg-muted/50 border-muted' : ''
+        }`}
+        onClick={handleCardClick}
+      >
+        {/* Main content - with flex-1 to push footer down */}
         <div className="p-6 flex-1">
           {/* Header */}
-          <div className="flex justify-between items-start gap-4">
+          <div className="flex justify-between items-start gap-4 mb-4">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-lg truncate">
+              <h3 className="font-semibold text-lg truncate group-hover:text-primary transition-colors">
                 {dataset.name || 'Untitled Dataset'}
               </h3>
               <p className="text-sm text-muted-foreground line-clamp-2">
                 {dataset.description || 'No description available'}
               </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {publicKey && !hideCollectionButton && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAddToCollection(true)}
-                  className="h-8 w-8 p-0"
-                >
-                  <FolderPlus className="h-4 w-4" />
-                </Button>
+            <div className="flex items-center gap-1 shrink-0">
+              {isOwner && (
+                <Crown className="h-4 w-4 text-yellow-500 shrink-0" />
               )}
-              <div className="text-sm text-muted-foreground flex items-center gap-1">
-                {isOwner && (
-                  <Crown className="h-4 w-4 text-yellow-500 shrink-0" />
-                )}
-                <span className="truncate max-w-[100px]">
-                  {getDisplayName(dataset.author)}
-                </span>
-              </div>
+              <span className="text-sm text-muted-foreground truncate max-w-[100px]">
+                {getDisplayName(dataset.author)}
+              </span>
             </div>
           </div>
 
-          {/* Metadata */}
-          <div className="mt-4 space-y-2">
+          {/* Metadata - with consistent spacing */}
+          <div className="space-y-2">
             <div className="flex items-center text-sm text-muted-foreground">
               <Calendar className="h-4 w-4 mr-2 shrink-0" />
               <span>{new Date(dataset.upload_date).toLocaleDateString()}</span>
@@ -141,46 +145,61 @@ export function DatasetCard({
           </div>
         </div>
 
-        {/* Footer - will stay at bottom */}
-        <div className="border-t p-4 mt-auto flex justify-between items-center">
-          <div className="flex items-center gap-4">
+        {/* Footer - fixed height, no flex-grow */}
+        <div className="border-t">
+          <div className="h-14 px-6 flex items-center justify-between">
+            {/* Left side - likes with proper sizing */}
             <Button 
               variant="ghost" 
               size="sm"
               onClick={handleLikeClick}
               disabled={isLoading}
-              className={`gap-2 ${isLiked ? 'text-red-500 hover:text-red-600' : ''}`}
+              className="min-w-[40px] h-8 flex items-center justify-center"
             >
-              <Heart className={isLiked ? 'fill-current' : ''} />
-              {showLikes && likes}
+              <div className="flex items-center">
+                <Heart className={`h-4 w-4 ${isLiked ? 'fill-current text-red-500' : ''}`} />
+                {showLikes && (
+                  <span className="ml-2 text-sm">{likes}</span>
+                )}
+              </div>
             </Button>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Folders className="h-4 w-4" />
-                    <span>
-                      {dataset.collection_count}
-                      {userCollectionCount > 0 && (
-                        <span className="text-muted-foreground ml-1">({userCollectionCount})</span>
-                      )}
-                    </span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>In {dataset.collection_count} total collections</p>
-                  {userCollectionCount > 0 && (
-                    <p>Including {userCollectionCount} of your collections</p>
-                  )}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+            {/* Right side - collections info and button */}
+            <div className="flex items-center space-x-3">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center space-x-2">
+                      <Folders className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
+                        {dataset.collection_count}
+                        {userCollectionCount > 0 && (
+                          <span className="ml-1">({userCollectionCount})</span>
+                        )}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>In {dataset.collection_count} total collections</p>
+                    {userCollectionCount > 0 && (
+                      <p>Including {userCollectionCount} of your collections</p>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-          <Link href={`/datasets/${dataset.id}`}>
-            <Button size="sm">View Details</Button>
-          </Link>
+              {!hideCollectionButton && publicKey && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAddToCollection(true)}
+                  className="h-8 w-8 p-0"
+                >
+                  <FolderPlus className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

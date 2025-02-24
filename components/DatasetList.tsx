@@ -9,7 +9,11 @@ import { CreateDatasetModal } from './CreateDatasetModal'
 import { Button } from './ui/button'
 import { SlidersHorizontal } from 'lucide-react'
 
-export function DatasetList() {
+interface DatasetListProps {
+  isFiltersVisible: boolean
+}
+
+export function DatasetList({ isFiltersVisible }: DatasetListProps) {
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({
@@ -18,7 +22,6 @@ export function DatasetList() {
     license: 'All'
   })
   const [appliedFilters, setAppliedFilters] = useState(filters)
-  const [isFiltersVisible, setIsFiltersVisible] = useState(false)
 
   useEffect(() => {
     loadDatasets()
@@ -64,23 +67,7 @@ export function DatasetList() {
   })
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold">Available Datasets</h1>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-gray-500 hover:text-gray-900"
-            onClick={() => setIsFiltersVisible(!isFiltersVisible)}
-          >
-            <SlidersHorizontal className="h-4 w-4 mr-2" />
-            {isFiltersVisible ? 'Hide filters' : 'Show filters'}
-          </Button>
-        </div>
-        <CreateDatasetModal />
-      </div>
-
+    <div className="space-y-6">
       <DatasetFilters
         filters={filters}
         onFiltersChange={setFilters}
@@ -89,6 +76,7 @@ export function DatasetList() {
         isVisible={isFiltersVisible}
       />
 
+      {/* Content zone */}
       {loading ? (
         <div className="text-center py-8">Loading datasets...</div>
       ) : filteredDatasets.length === 0 ? (

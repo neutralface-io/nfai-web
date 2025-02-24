@@ -1,24 +1,34 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { Collection } from '@/types/collection'
 import { Dataset } from '@/types/dataset'
-import { getCollectionById, getDatasets, addToCollection, removeFromCollection, updateCollection } from '@/lib/supabase'
+import { getCollectionById, getDatasets, addToCollection, removeFromCollection, updateCollection, deleteCollection } from '@/lib/supabase'
 import { DatasetCard } from '../DatasetCard'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
-import { ArrowLeft, Plus, Search, X, Check } from 'lucide-react'
+import { ArrowLeft, Plus, Search, X, Check, Share2, Trash2, Calendar, HardDrive, Tag, Crown } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '../ui/alert-dialog'
+import { useRouter } from 'next/navigation'
+import { getDisplayName } from '@/lib/utils'
 
 interface CollectionDetailProps {
   collectionId: string
 }
 
+interface CollectionDatasetCardProps {
+  dataset: Dataset
+  onRemove: (datasetId: string) => void
+  isOwner: boolean
+}
+
 export function CollectionDetail({ collectionId }: CollectionDetailProps) {
   const { publicKey } = useWallet()
+  const router = useRouter()
   const [collection, setCollection] = useState<Collection | null>(null)
   const [loading, setLoading] = useState(true)
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -29,6 +39,9 @@ export function CollectionDetail({ collectionId }: CollectionDetailProps) {
   const [editingDescription, setEditingDescription] = useState(false)
   const [pendingTitle, setPendingTitle] = useState('')
   const [pendingDescription, setPendingDescription] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const isOwner = publicKey?.toString() === collection?.created_by
 
@@ -36,14 +49,20 @@ export function CollectionDetail({ collectionId }: CollectionDetailProps) {
     loadCollection()
   }, [collectionId])
 
+  useEffect(() => {
+    if (showAddDialog) {
+      loadAllDatasets()
+    }
+  }, [showAddDialog])
+
   async function loadCollection() {
     try {
       setLoading(true)
       const data = await getCollectionById(collectionId)
       setCollection(data)
-    } catch (error) {
-      console.error('Error loading collection:', error)
-      toast.error('Failed to load collection')
+    } catch (err) {
+      setError('Failed to load collection')
+      console.error('Error loading collection:', err)
     } finally {
       setLoading(false)
     }
@@ -65,7 +84,13 @@ export function CollectionDetail({ collectionId }: CollectionDetailProps) {
   const handleAddDataset = async (datasetId: string) => {
     try {
       await addToCollection(collectionId, datasetId)
-      await loadCollection() // Refresh collection data
+      const addedDataset = allDatasets.find(d => d.id === datasetId)
+      if (addedDataset && collection) {
+        setCollection({
+          ...collection,
+          datasets: [...(collection.datasets || []), { dataset: addedDataset }]
+        })
+      }
       toast.success('Dataset added to collection')
     } catch (error) {
       console.error('Error adding dataset:', error)
@@ -144,186 +169,121 @@ export function CollectionDetail({ collectionId }: CollectionDetailProps) {
     const query = searchQuery.toLowerCase()
     return (
       dataset.name.toLowerCase().includes(query) ||
-      dataset.description?.toLowerCase().includes(query)
+      dataset.description.toLowerCase().includes(query)
     )
   })
 
-  if (loading) {
-    return <div className="container mx-auto px-4 py-8">Loading...</div>
+  const handleDelete = async () => {
+    if (!publicKey) return
+    
+    try {
+      setIsDeleting(true)
+      await deleteCollection(collectionId)
+      toast.success('Collection deleted')
+      router.push('/collections')
+    } catch (error) {
+      console.error('Error deleting collection:', error)
+      toast.error('Failed to delete collection')
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteDialog(false)
+    }
   }
 
-  if (!collection) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center py-8 text-gray-500">
-          Collection not found
-        </div>
-      </div>
-    )
+  if (loading) {
+    return <div className="text-center py-8">Loading collection...</div>
+  }
+
+  if (error || !collection) {
+    return <div className="text-center py-8 text-red-500">{error || 'Collection not found'}</div>
   }
 
   return (
-    <div className="container mx-auto">
-      <div className="space-y-6 p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/collections">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Collections
-              </Button>
-            </Link>
+    <>
+      <div>
+        {/* Header + Actions zone */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-semibold mb-2">{collection.name}</h1>
+            <p className="text-muted-foreground">{collection.description || 'No description'}</p>
           </div>
-          {isOwner && (
-            <Button onClick={() => {
-              setShowAddDialog(true)
-              loadAllDatasets()
-            }}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Datasets
-            </Button>
-          )}
-        </div>
-
-        {/* Collection Info */}
-        <div className="space-y-4">
-          <div className="relative group">
-            {editingTitle ? (
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={pendingTitle}
-                  onChange={(e) => setPendingTitle(e.target.value)}
-                  className="text-2xl font-bold bg-transparent border-b border-primary outline-none w-full"
-                  autoFocus
-                />
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleSave('title')}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Check className="h-4 w-4 text-green-500" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCancel('title')}
-                    className="h-8 w-8 p-0"
-                  >
-                    <X className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <h1
-                className={`text-2xl font-bold ${isOwner ? 'cursor-pointer hover:text-primary' : ''}`}
-                onClick={() => handleStartEdit('title')}
-              >
-                {collection.name}
-              </h1>
-            )}
-          </div>
-
-          <div className="relative group">
-            {editingDescription ? (
-              <div className="flex items-start gap-2">
-                <textarea
-                  value={pendingDescription}
-                  onChange={(e) => setPendingDescription(e.target.value)}
-                  className="mt-2 text-gray-500 bg-transparent border-b border-primary outline-none w-full resize-none"
-                  rows={3}
-                  autoFocus
-                />
-                <div className="flex gap-1 mt-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleSave('description')}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Check className="h-4 w-4 text-green-500" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCancel('description')}
-                    className="h-8 w-8 p-0"
-                  >
-                    <X className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <p
-                className={`mt-2 text-gray-500 ${isOwner ? 'cursor-pointer hover:text-primary' : ''}`}
-                onClick={() => handleStartEdit('description')}
-              >
-                {collection.description || 'No description'}
-              </p>
+          
+          <div className="flex items-center gap-2">
+            {isOwner && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setShowAddDialog(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setShowDeleteDialog(true)}
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </>
             )}
           </div>
         </div>
 
-        {/* Datasets Grid */}
-        {collection.datasets && collection.datasets.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {collection.datasets.map((item) => (
-              <div key={item.dataset.id} className="relative group">
-                {isOwner && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="absolute -right-2 -top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => handleRemoveDataset(item.dataset.id)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-                <DatasetCard
-                  dataset={item.dataset}
-                  showLikes={true}
-                  hideCollectionButton={true}
-                />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8 text-gray-500">
+        {/* Content zone with remove functionality */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {collection.datasets?.map((item) => (
+            <CollectionDatasetCard
+              key={item.dataset.id}
+              dataset={item.dataset}
+              onRemove={handleRemoveDataset}
+              isOwner={isOwner}
+            />
+          ))}
+        </div>
+
+        {!collection.datasets?.length && (
+          <div className="text-center py-8 text-muted-foreground">
             No datasets in this collection yet
           </div>
         )}
       </div>
 
-      {/* Add Datasets Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-3xl">
+      {/* Add Dataset Dialog */}
+      <Dialog 
+        open={showAddDialog} 
+        onOpenChange={(open) => {
+          setShowAddDialog(open)
+          if (!open) {
+            setSearchQuery('')  // Clear search when closing
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Add Datasets to Collection</DialogTitle>
+            <DialogTitle>Add Datasets</DialogTitle>
           </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+          <div className="py-4">
+            <div className="flex items-center gap-2 mb-4">
               <Input
                 placeholder="Search datasets..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="flex-1"
               />
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
               {searching ? (
                 <div className="text-center py-4">Loading datasets...</div>
               ) : filteredDatasets.length === 0 ? (
-                <div className="text-center py-4 text-gray-500">
-                  No datasets found
+                <div className="text-center py-4 text-muted-foreground">
+                  {searchQuery.trim() ? 'No matching datasets found' : 'No available datasets'}
                 </div>
               ) : (
-                filteredDatasets.map(dataset => (
+                filteredDatasets.map((dataset) => (
                   <div
                     key={dataset.id}
                     className="border rounded-lg p-4 hover:bg-gray-50"
@@ -349,6 +309,153 @@ export function CollectionDetail({ collectionId }: CollectionDetailProps) {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Collection</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this collection? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Collection'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
+}
+
+function CollectionDatasetCard({ dataset, onRemove, isOwner }: CollectionDatasetCardProps) {
+  const router = useRouter()
+  const { publicKey } = useWallet()
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const isDatasetOwner = publicKey?.toBase58() === dataset.created_by
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Prevent navigation if clicking on an interactive element
+    if ((e.target as HTMLElement).closest('button')) {
+      return
+    }
+    router.push(`/datasets/${dataset.id}`)
+  }
+
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    await onRemove(dataset.id)
+    setIsDeleting(false)
+    setShowDeleteDialog(false)
+  }
+
+  return (
+    <>
+      <div 
+        onClick={handleCardClick}
+        className={`bg-card border rounded-lg shadow-sm hover:shadow transition-all flex flex-col h-full cursor-pointer ${
+          isDatasetOwner ? 'bg-muted/50 border-muted' : ''
+        }`}
+      >
+        <div className="p-6 flex-1">
+          {/* Header */}
+          <div className="flex justify-between items-start gap-4 mb-4">
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg truncate">
+                {dataset.name}
+              </h3>
+              <p className="text-sm text-muted-foreground line-clamp-2">
+                {dataset.description}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {isDatasetOwner && (
+                <Crown className="h-4 w-4 text-yellow-500 shrink-0" />
+              )}
+              {dataset.author && (
+                <span className="text-sm text-muted-foreground truncate max-w-[100px]">
+                  {getDisplayName(dataset.author)}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Metadata section */}
+          <div className="space-y-2">
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4 mr-2 shrink-0" />
+              <span>{new Date(dataset.upload_date).toLocaleDateString()}</span>
+            </div>
+
+            <div className="flex items-center text-sm text-muted-foreground">
+              <HardDrive className="h-4 w-4 mr-2 shrink-0" />
+              <span>{dataset.size} MB</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="flex flex-wrap gap-1">
+                {dataset.category_tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-xs bg-secondary px-2 py-0.5 rounded-full"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer with remove button */}
+        <div className="border-t">
+          <div className="h-14 px-6 flex items-center justify-end">
+            {isOwner && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowDeleteDialog(true)}
+                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Dataset</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove "{dataset.name}" from this collection?
+              This won't delete the dataset itself.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Removing...' : 'Remove Dataset'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 } 

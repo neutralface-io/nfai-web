@@ -12,7 +12,7 @@ export function Navbar() {
 
   const navItems = [
     {
-      href: '/',
+      href: '/datasets',
       label: 'Datasets'
     },
     {
