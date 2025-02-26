@@ -66,6 +66,7 @@ interface CreateDatasetParams {
   category_tags: string[]
   license: string
   wallet_address: string
+  topics: string[]
 }
 
 export async function createDataset(params: CreateDatasetParams) {
@@ -102,6 +103,7 @@ export async function createDataset(params: CreateDatasetParams) {
         category_tags: params.category_tags,
         license: params.license,
         created_by: params.wallet_address,
+        topics: params.topics,
         upload_date: new Date().toISOString(),
         size: 0,
         likes: 0,
@@ -122,31 +124,16 @@ export async function createDataset(params: CreateDatasetParams) {
   }
 }
 
-export async function updateDataset(id: string, params: Partial<Dataset>) {
+export async function updateDataset(id: string, updates: Partial<Dataset>) {
   try {
-    // First check if user owns this dataset
-    const { data: dataset, error: fetchError } = await supabase
-      .from('datasets')
-      .select('created_by')
-      .eq('id', id)
-      .single()
-
-    if (fetchError) {
-      throw fetchError
-    }
-
-    if (!dataset) {
-      throw new Error('Dataset not found')
-    }
-
-    // Check if the provided wallet address matches the dataset creator
-    if (dataset.created_by !== params.created_by) {
-      throw new Error('Not authorized to update this dataset')
+    // First check if we have a valid connection
+    if (!supabase) {
+      throw new Error('Supabase client not initialized')
     }
 
     const { data, error } = await supabase
       .from('datasets')
-      .update(params)
+      .update(updates)
       .eq('id', id)
       .select(`
         *,
@@ -158,12 +145,17 @@ export async function updateDataset(id: string, params: Partial<Dataset>) {
       .single()
 
     if (error) {
+      console.error('Database error in updateDataset:', error.message)
       throw error
+    }
+
+    if (!data) {
+      throw new Error('No data returned from update')
     }
 
     return data
   } catch (error) {
-    console.error('Update dataset error:', error)
+    console.error('Error in updateDataset:', error)
     throw error
   }
 }
@@ -385,42 +377,38 @@ export async function toggleLike(datasetId: string, walletAddress: string) {
   }
 }
 
-// Get user's collections (created or shared with them)
+// Get user's collections
 export async function getUserCollections(walletAddress: string) {
   try {
-    // First get collections created by the user
-    const { data: ownedCollections, error: ownedError } = await supabase
+    const { data, error } = await supabase
       .from('collections')
       .select(`
         *,
         datasets:collection_items(
-          dataset:datasets(*)
+          dataset:datasets(
+            id,
+            name,
+            description,
+            created_by,
+            author:users!datasets_created_by_fkey (
+              username,
+              wallet_address
+            ),
+            upload_date,
+            size,
+            file_url,
+            likes,
+            visibility,
+            license,
+            collection_count
+          )
         )
       `)
       .eq('created_by', walletAddress)
       .order('created_at', { ascending: false })
 
-    if (ownedError) throw ownedError
-
-    // Then get collections shared with the user
-    const { data: sharedCollections, error: sharedError } = await supabase
-      .from('collection_shares')
-      .select(`
-        collection:collections (
-          *,
-          datasets:collection_items(
-            dataset:datasets(*)
-          )
-        )
-      `)
-      .eq('shared_with', walletAddress)
-
-    if (sharedError) throw sharedError
-
-    // Combine and return both sets
-    const shared = sharedCollections?.map(share => share.collection) || []
-    return [...(ownedCollections || []), ...shared]
-
+    if (error) throw error
+    return data || []
   } catch (error) {
     console.error('Error in getUserCollections:', error)
     return []
@@ -492,11 +480,21 @@ export async function getCollectionById(id: string) {
         *,
         datasets:collection_items(
           dataset:datasets(
-            *,
+            id,
+            name,
+            description,
+            created_by,
             author:users!datasets_created_by_fkey (
               username,
               wallet_address
-            )
+            ),
+            upload_date,
+            size,
+            file_url,
+            likes,
+            visibility,
+            license,
+            collection_count
           )
         )
       `)
@@ -504,6 +502,7 @@ export async function getCollectionById(id: string) {
       .single()
 
     if (error) throw error
+    if (!data) throw new Error('Collection not found')
     return data
   } catch (error) {
     console.error('Error in getCollectionById:', error)
@@ -561,5 +560,50 @@ export async function getUserCollectionCount(datasetId: string, walletAddress: s
   } catch (error) {
     console.error('Error getting user collection count:', error)
     return 0
+  }
+}
+
+// Get all unique topics from existing datasets
+export async function getAllTopics() {
+  try {
+    // First check if we have a valid connection
+    if (!supabase) {
+      console.error('Supabase client not initialized')
+      return []
+    }
+
+    const { data, error } = await supabase
+      .from('datasets')
+      .select('topics')
+
+    if (error) {
+      console.error('Database error in getAllTopics:', error.message)
+      return []
+    }
+
+    if (!data) {
+      console.log('No data returned from topics query')
+      return []
+    }
+
+    // Safely handle null/undefined topics and flatten the array
+    const allTopics = data
+      .flatMap(d => d.topics || [])
+      .filter(Boolean) // Remove any null/undefined values
+      .filter((topic, index, self) => 
+        topic && // Ensure topic exists
+        self.indexOf(topic) === index // Remove duplicates
+      )
+      .sort()
+
+    return allTopics
+  } catch (error) {
+    // Log the specific error type and message
+    console.error('Unexpected error in getAllTopics:', {
+      type: error?.constructor?.name,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      error
+    })
+    return [] // Return empty array on error
   }
 } 

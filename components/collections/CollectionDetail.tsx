@@ -400,20 +400,6 @@ function CollectionDatasetCard({ dataset, onRemove, isOwner }: CollectionDataset
               <HardDrive className="h-4 w-4 mr-2 shrink-0" />
               <span>{dataset.size} MB</span>
             </div>
-
-            <div className="flex items-center gap-2">
-              <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div className="flex flex-wrap gap-1">
-                {dataset.category_tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-xs bg-secondary px-2 py-0.5 rounded-full"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
 

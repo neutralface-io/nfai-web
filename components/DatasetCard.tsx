@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react'
 import { getLikedDatasets, toggleLike, getUserCollectionCount } from '@/lib/supabase'
 import { AddToCollectionDialog } from './collections/AddToCollectionDialog'
 import { useRouter } from 'next/navigation'
+import { Badge } from './ui/badge'
 
 interface DatasetCardProps {
   dataset: Dataset
@@ -118,30 +119,36 @@ export function DatasetCard({
           </div>
 
           {/* Metadata - with consistent spacing */}
-          <div className="space-y-2">
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4 mr-2 shrink-0" />
-              <span>{new Date(dataset.upload_date).toLocaleDateString()}</span>
-            </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4 mr-2 shrink-0" />
+                <span>{new Date(dataset.upload_date).toLocaleDateString()}</span>
+              </div>
 
-            <div className="flex items-center text-sm text-muted-foreground">
-              <HardDrive className="h-4 w-4 mr-2 shrink-0" />
-              <span>{dataset.size} MB</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div className="flex flex-wrap gap-1">
-                {dataset.category_tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-xs bg-secondary px-2 py-0.5 rounded-full"
-                  >
-                    {tag}
-                  </span>
-                ))}
+              <div className="flex items-center text-sm text-muted-foreground">
+                <HardDrive className="h-4 w-4 mr-2 shrink-0" />
+                <span>{dataset.size} MB</span>
               </div>
             </div>
+
+            {/* Topics section */}
+            {dataset.topics && dataset.topics.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex flex-wrap gap-1">
+                  {dataset.topics.map((topic) => (
+                    <Badge
+                      key={topic}
+                      variant="secondary"
+                      className="text-xs"
+                    >
+                      {topic}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

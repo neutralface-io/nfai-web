@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { DatasetCard } from './DatasetCard'
 import { DatasetFilters } from './DatasetFilters'
 import { Dataset } from '@/types/dataset'
-import { getDatasets } from '@/lib/supabase'
+import { getDatasets, getAllTopics } from '@/lib/supabase'
 import { CreateDatasetModal } from './CreateDatasetModal'
 import { Button } from './ui/button'
 import { SlidersHorizontal } from 'lucide-react'
@@ -15,16 +15,16 @@ interface DatasetListProps {
 
 export function DatasetList({ isFiltersVisible }: DatasetListProps) {
   const [datasets, setDatasets] = useState<Dataset[]>([])
+  const [topics, setTopics] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({
-    searchQuery: '',
-    category: 'All',
+    topic: 'All',
     license: 'All'
   })
-  const [appliedFilters, setAppliedFilters] = useState(filters)
 
   useEffect(() => {
     loadDatasets()
+    loadTopics()
   }, [])
 
   async function loadDatasets() {
@@ -38,41 +38,32 @@ export function DatasetList({ isFiltersVisible }: DatasetListProps) {
     }
   }
 
-  const handleApplyFilters = () => {
-    setAppliedFilters(filters)
-  }
-
-  const handleResetFilters = () => {
-    const defaultFilters = {
-      searchQuery: '',
-      category: 'All',
-      license: 'All'
+  async function loadTopics() {
+    try {
+      const topicsList = await getAllTopics()
+      setTopics(topicsList)
+    } catch (error) {
+      console.error('Error loading topics:', error)
     }
-    setFilters(defaultFilters)
-    setAppliedFilters(defaultFilters)
   }
 
   const filteredDatasets = datasets.filter(dataset => {
-    const matchesSearch = appliedFilters.searchQuery.trim() === '' || 
-      dataset.name.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
-      dataset.description.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase())
+    const matchesLicense = filters.license === 'All' || 
+      dataset.license === filters.license
 
-    const matchesCategory = appliedFilters.category === 'All' || 
-      dataset.category_tags.includes(appliedFilters.category.toLowerCase())
+    const matchesTopic = filters.topic === 'All' || 
+      (dataset.topics && dataset.topics.includes(filters.topic))
 
-    const matchesLicense = appliedFilters.license === 'All' || 
-      dataset.license === appliedFilters.license
-
-    return matchesSearch && matchesCategory && matchesLicense
+    return matchesLicense && matchesTopic
   })
 
   return (
     <div className="space-y-6">
       <DatasetFilters
         filters={filters}
+        topics={topics}
         onFiltersChange={setFilters}
-        onApplyFilters={handleApplyFilters}
-        onResetFilters={handleResetFilters}
+        onResetFilters={() => setFilters({ topic: 'All', license: 'All' })}
         isVisible={isFiltersVisible}
       />
 

@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
 import { Label } from './ui/label'
+import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
+import { Button } from './ui/button'
+import { Dataset } from '@/types/dataset'
+import { updateDataset } from '@/lib/supabase'
 import {
   Select,
   SelectContent,
@@ -13,20 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
-import { updateDataset } from '@/lib/supabase'
-import { Dataset } from '@/types/dataset'
-import { useWallet } from '@solana/wallet-adapter-react'
-
-const CATEGORIES = [
-  'Text',
-  'Image',
-  'Audio',
-  'Video',
-  'Tabular',
-  'Time Series',
-  'Graph',
-  'Other'
-]
+import { TopicInput } from './ui/topic-input'
 
 interface EditDatasetModalProps {
   dataset: Dataset
@@ -36,70 +25,45 @@ interface EditDatasetModalProps {
 }
 
 export function EditDatasetModal({ dataset, isOpen, onClose, onUpdate }: EditDatasetModalProps) {
-  const { publicKey } = useWallet()
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: dataset.name,
     description: dataset.description,
-    category_tags: dataset.category_tags,
+    visibility: dataset.visibility,
+    license: dataset.license,
+    topics: dataset.topics || []
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!publicKey) {
-      setError('Please connect your wallet first')
-      return
-    }
-
-    if (!formData.name.trim()) {
-      setError('Dataset name is required')
-      return
-    }
-
     try {
-      setIsLoading(true)
-      setError(null)
-
-      await updateDataset(dataset.id, {
-        ...formData,
-        created_by: publicKey.toBase58(), // For authorization check
-      })
-
+      setIsSubmitting(true)
+      await updateDataset(dataset.id, formData)
       onUpdate()
       onClose()
     } catch (error) {
       console.error('Error updating dataset:', error)
-      setError(error instanceof Error ? error.message : 'Failed to update dataset')
+      alert('Failed to update dataset')
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <Dialog 
-      open={isOpen} 
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
-    >
-      <DialogContent className="sm:max-w-[600px]">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Dataset</DialogTitle>
         </DialogHeader>
-        {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-md mb-4">
-            {error}
-          </div>
-        )}
-        <form onSubmit={handleSubmit} className="space-y-6">
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Dataset Name</Label>
+            <Label htmlFor="name">Name</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Enter dataset name"
+              required
             />
           </div>
 
@@ -109,43 +73,73 @@ export function EditDatasetModal({ dataset, isOpen, onClose, onUpdate }: EditDat
               id="description"
               value={formData.description}
               onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Describe your dataset"
+              required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="categories">Categories</Label>
+            <Label htmlFor="visibility">Visibility</Label>
             <Select
-              value={formData.category_tags[0]}
-              onValueChange={value => setFormData(prev => ({ 
-                ...prev, 
-                category_tags: [value]
-              }))}
+              value={formData.visibility}
+              onValueChange={value => setFormData(prev => ({ ...prev, visibility: value }))}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select category" />
+                <SelectValue placeholder="Select visibility" />
               </SelectTrigger>
               <SelectContent>
-                {CATEGORIES.map(category => (
-                  <SelectItem key={category} value={category.toLowerCase()}>
-                    {category}
-                  </SelectItem>
-                ))}
+                <SelectItem value="public">Public</SelectItem>
+                <SelectItem value="private">Private</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div className="flex justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={isLoading}
+          <div className="space-y-2">
+            <Label htmlFor="license">License</Label>
+            <Select
+              value={formData.license}
+              onValueChange={value => setFormData(prev => ({ ...prev, license: value }))}
             >
+              <SelectTrigger>
+                <SelectValue placeholder="Select license" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="MIT">MIT</SelectItem>
+                <SelectItem value="Apache-2.0">Apache 2.0</SelectItem>
+                <SelectItem value="GPL-3.0">GPL 3.0</SelectItem>
+                <SelectItem value="BSD-3-Clause">BSD 3-Clause</SelectItem>
+                <SelectItem value="CC BY 4.0">CC BY 4.0</SelectItem>
+                <SelectItem value="Public Domain">Public Domain</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Topics</Label>
+            <TopicInput
+              selectedTopics={formData.topics}
+              onTopicAdd={(topic) => {
+                setFormData(prev => ({
+                  ...prev,
+                  topics: [...prev.topics, topic]
+                }))
+              }}
+              onTopicRemove={(topic) => {
+                setFormData(prev => ({
+                  ...prev,
+                  topics: prev.topics.filter(t => t !== topic)
+                }))
+              }}
+              existingTopics={[]} // We'll fetch these from the database
+              placeholder="Add topics..."
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Saving...' : 'Save Changes'}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </form>

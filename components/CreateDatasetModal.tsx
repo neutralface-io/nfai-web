@@ -1,11 +1,13 @@
 'use client'
 
-import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
+import { useState, useEffect } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Label } from './ui/label'
+import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
+import { Button } from './ui/button'
+import { createDataset } from '@/lib/supabase'
+import { useWallet } from '@solana/wallet-adapter-react'
 import {
   Select,
   SelectContent,
@@ -13,127 +15,84 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
-import { createDataset } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
-import { Plus } from 'lucide-react'
-import { useWallet } from '@solana/wallet-adapter-react'
+import { TopicInput } from './ui/topic-input'
+import { getAllTopics } from '@/lib/supabase'
 
-const LICENSE_TYPES = [
-  'MIT',
-  'Apache-2.0',
-  'GPL-3.0',
-  'BSD-3-Clause',
-  'CC BY 4.0',
-  'Public Domain'
-]
+interface CreateDatasetModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onSuccess: () => void
+}
 
-const CATEGORIES = [
-  'Text',
-  'Image',
-  'Audio',
-  'Video',
-  'Tabular',
-  'Time Series',
-  'Graph',
-  'Other'
-]
-
-export function CreateDatasetModal() {
-  const router = useRouter()
+export function CreateDatasetModal({ isOpen, onClose, onSuccess }: CreateDatasetModalProps) {
   const { publicKey } = useWallet()
-  const [isOpen, setIsOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     visibility: 'public',
-    category_tags: [] as string[],
-    license: LICENSE_TYPES[0],
+    license: 'MIT',
+    topics: [] as string[]
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [existingTopics, setExistingTopics] = useState<string[]>([])
+
+  useEffect(() => {
+    async function loadTopics() {
+      try {
+        const topics = await getAllTopics()
+        setExistingTopics(topics)
+      } catch (error) {
+        console.error('Error loading topics:', error)
+      }
+    }
+
+    if (isOpen) {
+      loadTopics()
+    }
+  }, [isOpen])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!publicKey) {
-      setError('Please connect your wallet first')
-      return
-    }
-
-    if (!formData.name.trim()) {
-      setError('Dataset name is required')
-      return
-    }
+    if (!publicKey) return
 
     try {
-      setIsLoading(true)
-      setError(null)
-
-      const params = {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        visibility: formData.visibility,
-        category_tags: formData.category_tags,
-        license: formData.license,
-        wallet_address: publicKey.toBase58(),
-      }
-
-      console.log('Submitting dataset with params:', params)
-
-      await createDataset(params)
-      setIsOpen(false)
-      window.location.reload()
+      setIsSubmitting(true)
+      await createDataset({
+        ...formData,
+        wallet_address: publicKey.toBase58()
+      })
+      onSuccess()
+      onClose()
+      setFormData({
+        name: '',
+        description: '',
+        visibility: 'public',
+        license: 'MIT',
+        topics: []
+      })
     } catch (error) {
       console.error('Error creating dataset:', error)
-      if (error instanceof Error) {
-        setError(`Failed to create dataset: ${error.message}`)
-      } else {
-        setError('Failed to create dataset. Please check the console for details.')
-      }
+      alert('Failed to create dataset')
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <Dialog 
-      open={isOpen} 
-      onOpenChange={(open) => {
-        setIsOpen(open)
-        if (!open) {
-          setError(null)
-          setFormData({
-            name: '',
-            description: '',
-            visibility: 'public',
-            category_tags: [],
-            license: LICENSE_TYPES[0],
-          })
-        }
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Dataset
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Dataset</DialogTitle>
         </DialogHeader>
-        {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-md mb-4">
-            {error}
-          </div>
-        )}
-        <form onSubmit={handleSubmit} className="space-y-6">
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Dataset Name</Label>
+            <Label htmlFor="name">Name</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Enter dataset name"
+              required
             />
           </div>
 
@@ -143,7 +102,7 @@ export function CreateDatasetModal() {
               id="description"
               value={formData.description}
               onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Describe your dataset"
+              required
             />
           </div>
 
@@ -164,28 +123,6 @@ export function CreateDatasetModal() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="categories">Categories</Label>
-            <Select
-              value={formData.category_tags[0]}
-              onValueChange={value => setFormData(prev => ({ 
-                ...prev, 
-                category_tags: [value]
-              }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map(category => (
-                  <SelectItem key={category} value={category.toLowerCase()}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="license">License</Label>
             <Select
               value={formData.license}
@@ -195,26 +132,43 @@ export function CreateDatasetModal() {
                 <SelectValue placeholder="Select license" />
               </SelectTrigger>
               <SelectContent>
-                {LICENSE_TYPES.map(license => (
-                  <SelectItem key={license} value={license}>
-                    {license}
-                  </SelectItem>
-                ))}
+                <SelectItem value="MIT">MIT</SelectItem>
+                <SelectItem value="Apache-2.0">Apache 2.0</SelectItem>
+                <SelectItem value="GPL-3.0">GPL 3.0</SelectItem>
+                <SelectItem value="BSD-3-Clause">BSD 3-Clause</SelectItem>
+                <SelectItem value="CC BY 4.0">CC BY 4.0</SelectItem>
+                <SelectItem value="Public Domain">Public Domain</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div className="flex justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsOpen(false)}
-              disabled={isLoading}
-            >
+          <div className="space-y-2">
+            <Label>Topics</Label>
+            <TopicInput
+              selectedTopics={formData.topics}
+              onTopicAdd={(topic) => {
+                setFormData(prev => ({
+                  ...prev,
+                  topics: [...prev.topics, topic]
+                }))
+              }}
+              onTopicRemove={(topic) => {
+                setFormData(prev => ({
+                  ...prev,
+                  topics: prev.topics.filter(t => t !== topic)
+                }))
+              }}
+              existingTopics={existingTopics}
+              placeholder="Add topics..."
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Creating...' : 'Create Dataset'}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Creating...' : 'Create Dataset'}
             </Button>
           </div>
         </form>
